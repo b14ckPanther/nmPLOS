@@ -49,12 +49,8 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
       
-      // Finance - transactions and bills
-      match /finance/transactions/{transactionId} {
-        allow read, write: if isOwner(userId);
-      }
-      
-      match /finance/bills/{billId} {
+      // Finance - transactions and bills (subcollections under finance document)
+      match /finance/{document=**} {
         allow read, write: if isOwner(userId);
       }
       
