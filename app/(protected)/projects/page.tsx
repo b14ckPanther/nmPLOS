@@ -221,14 +221,14 @@ export default function ProjectsPage() {
                 <div className="space-y-2">
                   <Label htmlFor="courseId">Course</Label>
                   <Select
-                    value={formData.courseId}
-                    onValueChange={(value) => setFormData({ ...formData, courseId: value })}
+                    value={formData.courseId || undefined}
+                    onValueChange={(value) => setFormData({ ...formData, courseId: value === "none" ? "" : value })}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select a course (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No course</SelectItem>
+                      <SelectItem value="none">No course</SelectItem>
                       {courses.map((course) => (
                         <SelectItem key={course.id} value={course.id}>
                           {course.name}

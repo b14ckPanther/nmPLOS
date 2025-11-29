@@ -357,14 +357,14 @@ export default function FinancePage() {
                   <div className="space-y-2">
                     <Label htmlFor="billCategory">Category</Label>
                     <Select
-                      value={billFormData.category}
-                      onValueChange={(value) => setBillFormData({ ...billFormData, category: value })}
+                      value={billFormData.category || undefined}
+                      onValueChange={(value) => setBillFormData({ ...billFormData, category: value === "none" ? "" : value })}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder="Select a category (optional)" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="">No category</SelectItem>
+                        <SelectItem value="none">No category</SelectItem>
                         {categories.map((cat) => (
                           <SelectItem key={cat} value={cat}>
                             {cat}

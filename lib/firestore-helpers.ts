@@ -130,8 +130,7 @@ export const deleteTask = async (uid: string, taskId: string): Promise<void> => 
 // Transactions
 export const getTransactions = async (uid: string, limitCount?: number): Promise<Transaction[]> => {
   const firestore = ensureDb();
-  const financeDocRef = doc(firestore, `users/${uid}/finance`);
-  const transactionsRef = collection(financeDocRef, "transactions");
+  const transactionsRef = collection(firestore, `users/${uid}/transactions`);
   const constraints: QueryConstraint[] = [orderBy("date", "desc")];
   
   if (limitCount) {
@@ -154,8 +153,7 @@ export const createTransaction = async (
   transaction: Omit<Transaction, "id" | "createdAt">
 ): Promise<string> => {
   const firestore = ensureDb();
-  const financeDocRef = doc(firestore, `users/${uid}/finance`);
-  const transactionsRef = collection(financeDocRef, "transactions");
+  const transactionsRef = collection(firestore, `users/${uid}/transactions`);
   const docRef = doc(transactionsRef);
   await setDoc(docRef, {
     ...transaction,
@@ -168,8 +166,7 @@ export const createTransaction = async (
 // Update and Delete Transactions
 export const updateTransaction = async (uid: string, transactionId: string, updates: Partial<Transaction>): Promise<void> => {
   const firestore = ensureDb();
-  const financeDocRef = doc(firestore, `users/${uid}/finance`);
-  const docRef = doc(financeDocRef, "transactions", transactionId);
+  const docRef = doc(firestore, `users/${uid}/transactions`, transactionId);
   const updateData: any = { ...updates };
   if (updates.date !== undefined) {
     updateData.date = updates.date ? toTimestamp(updates.date) : null;
@@ -179,16 +176,14 @@ export const updateTransaction = async (uid: string, transactionId: string, upda
 
 export const deleteTransaction = async (uid: string, transactionId: string): Promise<void> => {
   const firestore = ensureDb();
-  const financeDocRef = doc(firestore, `users/${uid}/finance`);
-  const docRef = doc(financeDocRef, "transactions", transactionId);
+  const docRef = doc(firestore, `users/${uid}/transactions`, transactionId);
   await deleteDoc(docRef);
 };
 
 // Bills
 export const getBills = async (uid: string, filters?: { paid?: boolean }): Promise<Bill[]> => {
   const firestore = ensureDb();
-  const financeDocRef = doc(firestore, `users/${uid}/finance`);
-  const billsRef = collection(financeDocRef, "bills");
+  const billsRef = collection(firestore, `users/${uid}/bills`);
   const constraints: QueryConstraint[] = [orderBy("dueDate", "asc")];
   
   if (filters?.paid !== undefined) {
@@ -208,8 +203,7 @@ export const getBills = async (uid: string, filters?: { paid?: boolean }): Promi
 
 export const createBill = async (uid: string, bill: Omit<Bill, "id" | "createdAt">): Promise<string> => {
   const firestore = ensureDb();
-  const financeDocRef = doc(firestore, `users/${uid}/finance`);
-  const billsRef = collection(financeDocRef, "bills");
+  const billsRef = collection(firestore, `users/${uid}/bills`);
   const docRef = doc(billsRef);
   await setDoc(docRef, {
     ...bill,
@@ -221,8 +215,7 @@ export const createBill = async (uid: string, bill: Omit<Bill, "id" | "createdAt
 
 export const updateBill = async (uid: string, billId: string, updates: Partial<Bill>): Promise<void> => {
   const firestore = ensureDb();
-  const financeDocRef = doc(firestore, `users/${uid}/finance`);
-  const docRef = doc(financeDocRef, "bills", billId);
+  const docRef = doc(firestore, `users/${uid}/bills`, billId);
   const updateData: any = { ...updates };
   if (updates.dueDate !== undefined) {
     updateData.dueDate = updates.dueDate ? toTimestamp(updates.dueDate) : null;
@@ -232,8 +225,7 @@ export const updateBill = async (uid: string, billId: string, updates: Partial<B
 
 export const deleteBill = async (uid: string, billId: string): Promise<void> => {
   const firestore = ensureDb();
-  const financeDocRef = doc(firestore, `users/${uid}/finance`);
-  const docRef = doc(financeDocRef, "bills", billId);
+  const docRef = doc(firestore, `users/${uid}/bills`, billId);
   await deleteDoc(docRef);
 };
 
