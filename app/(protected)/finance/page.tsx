@@ -426,7 +426,7 @@ export default function FinancePage() {
                 Add Transaction
               </Button>
             </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px]">
+            <DialogContent className="sm:max-w-[500px]">
             <DialogHeader>
               <DialogTitle>
                 {editingTransaction ? "Edit Transaction" : "Create New Transaction"}
