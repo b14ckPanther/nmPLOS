@@ -1,0 +1,78 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user owns the resource
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // User profile and settings - users can only access their own
+    match /users/{userId} {
+      // Profile data
+      match /profile/{document=**} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Settings
+      match /settings/{document=**} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Financial preferences
+      match /financial_preferences/{document=**} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Tasks - users can only access their own tasks
+      match /tasks/{taskId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Courses - users can only access their own courses
+      match /courses/{courseId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Projects - users can only access their own projects
+      match /projects/{projectId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Exams - users can only access their own exams
+      match /exams/{examId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Finance - transactions and bills
+      match /finance/transactions/{transactionId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /finance/bills/{billId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Gmail messages
+      match /gmail/{messageId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Habits (if you add this later)
+      match /habits/{habitId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+    
+    // Deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
