@@ -49,7 +49,7 @@ export interface Course {
   year: number;
   progress: number; // 0-100
   points: number; // Credit points for this course
-  grade?: number; // Grade received (0-100 or letter grade converted to number)
+  grade?: number | null; // Grade received (0-100 or letter grade converted to number)
   completed: boolean; // Whether the course is completed
   assignments: string[]; // Task IDs
   exams: string[]; // Exam IDs

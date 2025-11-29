@@ -84,7 +84,7 @@ export default function AddCoursePage() {
         semester: formData.semester,
         year: formData.year,
         points: formData.points,
-        grade: formData.grade ? parseFloat(formData.grade) : undefined,
+        grade: formData.grade ? parseFloat(formData.grade) : null,
         completed: formData.completed,
         progress: formData.completed ? 100 : formData.progress,
       };

@@ -248,23 +248,42 @@ export const createCourse = async (uid: string, course: Omit<Course, "id" | "cre
   const firestore = ensureDb();
   const coursesRef = collection(firestore, `users/${uid}/courses`);
   const docRef = doc(coursesRef);
-  await setDoc(docRef, {
+  
+  // Ensure grade is null instead of undefined
+  const courseData: any = {
     ...course,
     assignments: course.assignments || [],
     exams: course.exams || [],
+    grade: course.grade ?? null,
     createdAt: Timestamp.now(),
     updatedAt: Timestamp.now(),
-  });
+  };
+  
+  await setDoc(docRef, courseData);
   return docRef.id;
 };
 
 export const updateCourse = async (uid: string, courseId: string, updates: Partial<Course>): Promise<void> => {
   const firestore = ensureDb();
   const docRef = doc(firestore, `users/${uid}/courses`, courseId);
-  await updateDoc(docRef, {
-    ...updates,
-    updatedAt: Timestamp.now(),
+  
+  // Remove undefined values and convert to null where appropriate
+  const updateData: any = {};
+  Object.keys(updates).forEach((key) => {
+    const value = (updates as any)[key];
+    if (value !== undefined) {
+      updateData[key] = value;
+    }
   });
+  
+  // If grade is explicitly undefined, set it to null to remove the field
+  if ('grade' in updates && updates.grade === undefined) {
+    updateData.grade = null;
+  }
+  
+  updateData.updatedAt = Timestamp.now();
+  
+  await updateDoc(docRef, updateData);
 };
 
 export const deleteCourse = async (uid: string, courseId: string): Promise<void> => {
