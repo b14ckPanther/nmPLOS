@@ -73,8 +73,23 @@ User message: ${message}`;
     });
   } catch (error: any) {
     console.error("Assistant error:", error);
+    
+    // Provide more specific error messages
+    let errorMessage = "Failed to process request";
+    if (error instanceof Error) {
+      if (error.message.includes("API_KEY")) {
+        errorMessage = "API key is invalid or missing. Please check your GEMINI_API_KEY environment variable.";
+      } else if (error.message.includes("quota") || error.message.includes("limit")) {
+        errorMessage = "API quota exceeded. Please check your Gemini API usage limits.";
+      } else if (error.message.includes("network") || error.message.includes("fetch")) {
+        errorMessage = "Network error. Please check your internet connection and try again.";
+      } else {
+        errorMessage = error.message || "Failed to process request";
+      }
+    }
+    
     return NextResponse.json(
-      { error: "Failed to process request", message: error.message },
+      { error: errorMessage, details: process.env.NODE_ENV === "development" ? error.message : undefined },
       { status: 500 }
     );
   }

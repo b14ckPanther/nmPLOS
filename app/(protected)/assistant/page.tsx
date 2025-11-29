@@ -33,12 +33,17 @@ export default function AssistantPage() {
         }),
       });
 
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Unknown error occurred" }));
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+
       const data = await response.json();
       
       if (data.error) {
         setMessages((prev) => [...prev, { 
           role: "assistant", 
-          content: `Error: ${data.error}` 
+          content: `❌ Error: ${data.error}${data.details ? `\n\nDetails: ${data.details}` : ""}` 
         }]);
       } else {
         setMessages((prev) => [...prev, { 
@@ -53,9 +58,13 @@ export default function AssistantPage() {
         }
       }
     } catch (error) {
+      const errorMessage = error instanceof Error 
+        ? error.message 
+        : "Sorry, there was an error processing your request.";
+      
       setMessages((prev) => [...prev, { 
         role: "assistant", 
-        content: "Sorry, there was an error processing your request." 
+        content: `❌ Error: ${errorMessage}\n\nPlease make sure GEMINI_API_KEY is set in your Vercel environment variables.` 
       }]);
     } finally {
       setLoading(false);
