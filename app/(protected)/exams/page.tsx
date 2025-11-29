@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/firebase/client";
 import { getExams, createExam, updateExam, deleteExam, getCourses } from "@/lib/firestore-helpers";
@@ -8,7 +8,7 @@ import type { Exam, Course } from "@/firebase/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Edit2, Trash2, BookOpen, Calendar, MapPin } from "lucide-react";
+import { Plus, Edit2, Trash2, BookOpen, Calendar, MapPin, ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -31,6 +31,7 @@ export default function ExamsPage() {
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editingExam, setEditingExam] = useState<Exam | null>(null);
+  const [expandedSemesters, setExpandedSemesters] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -159,8 +160,89 @@ export default function ExamsPage() {
     setEditingExam(null);
   };
 
-  const upcomingExams = exams.filter((exam) => new Date(exam.date) >= new Date());
-  const pastExams = exams.filter((exam) => new Date(exam.date) < new Date());
+  // Group upcoming exams by semester
+  const { examsBySemester, pastExams } = useMemo(() => {
+    const now = new Date();
+    const upcoming: Exam[] = [];
+    const past: Exam[] = [];
+    
+    exams.forEach((exam) => {
+      if (new Date(exam.date) >= now) {
+        upcoming.push(exam);
+      } else {
+        past.push(exam);
+      }
+    });
+    
+    // Helper function to get semester from exam date or course
+    const getExamSemester = (exam: Exam): { year: number; semester: "A" | "B" } => {
+      const examDate = new Date(exam.date);
+      const examYear = examDate.getFullYear();
+      const examMonth = examDate.getMonth();
+      const examSemester: "A" | "B" = examMonth < 6 ? "A" : "B";
+      
+      // If exam is linked to a course, use course's semester
+      if (exam.courseId) {
+        const course = courses.find((c) => c.id === exam.courseId);
+        if (course) {
+          return { year: course.year, semester: course.semester };
+        }
+      }
+      
+      return { year: examYear, semester: examSemester };
+    };
+    
+    // Group upcoming exams by semester
+    const grouped: { [key: string]: Exam[] } = {};
+    upcoming.forEach((exam) => {
+      const { year, semester } = getExamSemester(exam);
+      const key = `${year}-${semester}`;
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+      grouped[key].push(exam);
+    });
+    
+    // Sort semesters by year and semester (A before B)
+    const sorted = Object.entries(grouped).sort(([a], [b]) => {
+      const [yearA, semA] = a.split("-");
+      const [yearB, semB] = b.split("-");
+      if (yearA !== yearB) return parseInt(yearA) - parseInt(yearB);
+      if (semA === "A" && semB === "B") return -1;
+      if (semA === "B" && semB === "A") return 1;
+      return 0;
+    });
+    
+    // Sort exams within each semester by date
+    sorted.forEach(([_, examList]) => {
+      examList.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    });
+    
+    return { examsBySemester: sorted, pastExams: past };
+  }, [exams, courses]);
+
+  // Toggle semester expansion
+  const toggleSemester = (semesterKey: string) => {
+    setExpandedSemesters((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(semesterKey)) {
+        newSet.delete(semesterKey);
+      } else {
+        newSet.add(semesterKey);
+      }
+      return newSet;
+    });
+  };
+
+  // Collapse/expand all semesters
+  const toggleAllSemesters = () => {
+    if (expandedSemesters.size > 0) {
+      setExpandedSemesters(new Set());
+    } else {
+      const allKeys = new Set(examsBySemester.map(([key]) => key));
+      setExpandedSemesters(allKeys);
+    }
+  };
 
   if (loading) {
     return (
@@ -286,69 +368,119 @@ export default function ExamsPage() {
         </Card>
       ) : (
         <>
-          {upcomingExams.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle>Upcoming Exams ({upcomingExams.length})</CardTitle>
-                <CardDescription>Your scheduled exams</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {upcomingExams.map((exam) => {
-                    const course = courses.find((c) => c.id === exam.courseId);
-                    return (
-                      <div
-                        key={exam.id}
-                        className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-2">
-                              <BookOpen className="h-5 w-5 text-primary" />
-                              <h3 className="font-semibold">{exam.name}</h3>
-                            </div>
-                            {course && (
-                              <p className="text-sm text-muted-foreground mb-2">{course.name}</p>
-                            )}
-                            <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                              <span className="flex items-center gap-1">
-                                <Calendar className="h-4 w-4" />
-                                {format(new Date(exam.date), "MMM d, yyyy 'at' h:mm a")}
-                              </span>
-                              {exam.location && (
-                                <span className="flex items-center gap-1">
-                                  <MapPin className="h-4 w-4" />
-                                  {exam.location}
-                                </span>
+          {examsBySemester.length > 0 && (
+            <>
+              {/* Collapse All Button */}
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={toggleAllSemesters}
+                  className="flex items-center gap-2"
+                >
+                  <ChevronsUpDown className="h-4 w-4" />
+                  {expandedSemesters.size > 0 ? "Collapse All" : "Expand All"}
+                </Button>
+              </div>
+
+              {/* Exams by Semester */}
+              {examsBySemester.map(([semesterKey, semesterExams]) => {
+                const [year, semester] = semesterKey.split("-");
+                const isExpanded = expandedSemesters.has(semesterKey);
+                const totalExams = semesterExams.length;
+
+                return (
+                  <Card key={semesterKey}>
+                    <CardHeader>
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => toggleSemester(semesterKey)}
+                            >
+                              {isExpanded ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
                               )}
+                            </Button>
+                            <div>
+                              <CardTitle>
+                                {semester === "A" ? "Semester A" : "Semester B"} {year}
+                              </CardTitle>
+                              <CardDescription>
+                                {totalExams} exam{totalExams !== 1 ? "s" : ""} scheduled
+                              </CardDescription>
                             </div>
-                            {exam.notes && (
-                              <p className="text-sm text-muted-foreground mt-2">{exam.notes}</p>
-                            )}
-                          </div>
-                          <div className="flex gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEdit(exam)}
-                            >
-                              <Edit2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDelete(exam.id)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
                           </div>
                         </div>
                       </div>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
+                    </CardHeader>
+                    {isExpanded && (
+                      <CardContent>
+                        <div className="space-y-4">
+                          {semesterExams.map((exam) => {
+                            const course = courses.find((c) => c.id === exam.courseId);
+                            return (
+                              <div
+                                key={exam.id}
+                                className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                              >
+                                <div className="flex items-start justify-between">
+                                  <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-2">
+                                      <BookOpen className="h-5 w-5 text-primary" />
+                                      <h3 className="font-semibold">{exam.name}</h3>
+                                    </div>
+                                    {course && (
+                                      <p className="text-sm text-muted-foreground mb-2">{course.name}</p>
+                                    )}
+                                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                                      <span className="flex items-center gap-1">
+                                        <Calendar className="h-4 w-4" />
+                                        {format(new Date(exam.date), "MMM d, yyyy 'at' h:mm a")}
+                                      </span>
+                                      {exam.location && (
+                                        <span className="flex items-center gap-1">
+                                          <MapPin className="h-4 w-4" />
+                                          {exam.location}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {exam.notes && (
+                                      <p className="text-sm text-muted-foreground mt-2">{exam.notes}</p>
+                                    )}
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleEdit(exam)}
+                                    >
+                                      <Edit2 className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      onClick={() => handleDelete(exam.id)}
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </CardContent>
+                    )}
+                  </Card>
+                );
+              })}
+            </>
           )}
 
           {pastExams.length > 0 && (
