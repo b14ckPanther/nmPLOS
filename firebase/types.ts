@@ -57,7 +57,7 @@ export interface Course {
 
 export interface Exam {
   id: string;
-  courseId: string;
+  courseId?: string;
   name: string;
   date: Date;
   location?: string;

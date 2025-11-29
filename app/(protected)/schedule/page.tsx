@@ -250,8 +250,8 @@ export default function SchedulePage() {
             <div className="space-y-3">
               {[...tasks.filter((t) => t.dueDate && !t.completed), ...exams]
                 .sort((a, b) => {
-                  const dateA = "dueDate" in a ? a.dueDate! : a.date;
-                  const dateB = "dueDate" in b ? b.dueDate! : b.date;
+                  const dateA = "dueDate" in a ? (a as Task).dueDate! : (a as Exam).date;
+                  const dateB = "dueDate" in b ? (b as Task).dueDate! : (b as Exam).date;
                   return new Date(dateA).getTime() - new Date(dateB).getTime();
                 })
                 .slice(0, 7)
