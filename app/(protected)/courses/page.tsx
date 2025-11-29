@@ -10,7 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit2, Trash2, BookOpen, TrendingUp, Award, Target } from "lucide-react";
+import { Plus, Edit2, Trash2, BookOpen, TrendingUp, Award, Target, ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -30,6 +30,7 @@ export default function CoursesPage() {
   const [loading, setLoading] = useState(true);
   const [showEditPoints, setShowEditPoints] = useState(false);
   const [manualPoints, setManualPoints] = useState(0);
+  const [expandedSemesters, setExpandedSemesters] = useState<Set<string>>(new Set());
   const { toast } = useToast();
 
   const loadCourses = useCallback(async (userId: string) => {
@@ -86,18 +87,34 @@ export default function CoursesPage() {
     router.push(`/courses/add?id=${course.id}`);
   };
 
-  // Group courses by semester
-  const coursesBySemester = useMemo(() => {
+  // Get current year and semester
+  const currentYear = new Date().getFullYear();
+  const currentMonth = new Date().getMonth();
+  const currentSemester = currentMonth < 6 ? "A" : "B"; // Assuming A = first half, B = second half
+
+  // Group courses by semester and separate future courses
+  const { coursesBySemester, futureCourses } = useMemo(() => {
     const grouped: { [key: string]: Course[] } = {};
+    const future: Course[] = [];
+    
     courses.forEach((course) => {
-      const key = `${course.year}-${course.semester}`;
-      if (!grouped[key]) {
-        grouped[key] = [];
+      // Check if course is in the future
+      const isFuture = course.year > currentYear || 
+        (course.year === currentYear && course.semester === "B" && currentSemester === "A");
+      
+      if (isFuture) {
+        future.push(course);
+      } else {
+        const key = `${course.year}-${course.semester}`;
+        if (!grouped[key]) {
+          grouped[key] = [];
+        }
+        grouped[key].push(course);
       }
-      grouped[key].push(course);
     });
+    
     // Sort semesters by year (descending) and semester (A before B)
-    return Object.entries(grouped).sort(([a], [b]) => {
+    const sorted = Object.entries(grouped).sort(([a], [b]) => {
       const [yearA, semA] = a.split("-");
       const [yearB, semB] = b.split("-");
       if (yearA !== yearB) return parseInt(yearB) - parseInt(yearA);
@@ -106,9 +123,45 @@ export default function CoursesPage() {
       if (semA === "B" && semB === "A") return 1;
       return 0;
     });
-  }, [courses]);
+    
+    // Sort future courses by year and semester
+    const sortedFuture = future.sort((a, b) => {
+      if (a.year !== b.year) return a.year - b.year;
+      if (a.semester === "A" && b.semester === "B") return -1;
+      if (a.semester === "B" && b.semester === "A") return 1;
+      return 0;
+    });
+    
+    return { coursesBySemester: sorted, futureCourses: sortedFuture };
+  }, [courses, currentYear, currentSemester]);
 
-  // Calculate points statistics
+  // Toggle semester expansion
+  const toggleSemester = (semesterKey: string) => {
+    setExpandedSemesters((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(semesterKey)) {
+        newSet.delete(semesterKey);
+      } else {
+        newSet.add(semesterKey);
+      }
+      return newSet;
+    });
+  };
+
+  // Collapse/expand all semesters
+  const toggleAllSemesters = () => {
+    if (expandedSemesters.size > 0) {
+      setExpandedSemesters(new Set());
+    } else {
+      const allKeys = new Set([
+        ...coursesBySemester.map(([key]) => key),
+        ...(futureCourses.length > 0 ? ["future"] : []),
+      ]);
+      setExpandedSemesters(allKeys);
+    }
+  };
+
+  // Calculate points statistics (future courses count as uncompleted)
   const pointsStats = useMemo(() => {
     const completedCourses = courses.filter((c) => c.completed);
     const pointsFromCourses = completedCourses.reduce((sum, c) => sum + (c.points ?? 0), 0);
@@ -119,6 +172,9 @@ export default function CoursesPage() {
     const remainingPoints = degreeTotalPoints > 0 ? Math.max(0, degreeTotalPoints - totalPointsEarned) : 0;
     const progressPercentage =
       degreeTotalPoints > 0 ? Math.min(100, (totalPointsEarned / degreeTotalPoints) * 100) : 0;
+    
+    // Future courses are counted as uncompleted
+    const uncompletedCount = courses.length - completedCourses.length;
 
     return {
       totalPointsEarned,
@@ -130,8 +186,10 @@ export default function CoursesPage() {
       progressPercentage,
       completedCount: completedCourses.length,
       totalCount: courses.length,
+      uncompletedCount,
+      futureCount: futureCourses.length,
     };
-  }, [courses, userProfile]);
+  }, [courses, userProfile, futureCourses.length]);
 
   const handleOpenEditPoints = () => {
     setManualPoints(userProfile?.manualEarnedPoints ?? 0);
@@ -238,6 +296,11 @@ export default function CoursesPage() {
                   <p className="text-2xl font-bold">
                     {pointsStats.completedCount} / {pointsStats.totalCount}
                   </p>
+                  {pointsStats.futureCount > 0 && (
+                    <p className="text-xs text-blue-600 mt-1">
+                      {pointsStats.futureCount} future course{pointsStats.futureCount !== 1 ? "s" : ""}
+                    </p>
+                  )}
                 </div>
               </div>
             </div>
@@ -311,8 +374,25 @@ export default function CoursesPage() {
         </Card>
       ) : (
         <div className="space-y-8">
+          {/* Collapse All Button */}
+          {coursesBySemester.length > 0 && (
+            <div className="flex justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleAllSemesters}
+                className="flex items-center gap-2"
+              >
+                <ChevronsUpDown className="h-4 w-4" />
+                {expandedSemesters.size > 0 ? "Collapse All" : "Expand All"}
+              </Button>
+            </div>
+          )}
+
+          {/* Current and Past Semesters */}
           {coursesBySemester.map(([semesterKey, semesterCourses]) => {
             const [year, semester] = semesterKey.split("-");
+            const isExpanded = expandedSemesters.has(semesterKey);
             const semesterPoints = semesterCourses
               .filter((c) => c.completed)
               .reduce((sum, c) => sum + (c.points ?? 0), 0);
@@ -322,19 +402,39 @@ export default function CoursesPage() {
             );
 
             return (
-              <div key={semesterKey} className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-2xl font-semibold">
-                      {semester === "A" ? "Semester A" : "Semester B"} {year}
-                    </h2>
-                    <p className="text-sm text-muted-foreground">
-                      {semesterCourses.length} course{semesterCourses.length !== 1 ? "s" : ""} •{" "}
-                      {semesterPoints} / {semesterTotalPoints} points earned
-                    </p>
+              <Card key={semesterKey}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => toggleSemester(semesterKey)}
+                        >
+                          {isExpanded ? (
+                            <ChevronUp className="h-4 w-4" />
+                          ) : (
+                            <ChevronDown className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <div>
+                          <CardTitle className="text-2xl">
+                            {semester === "A" ? "Semester A" : "Semester B"} {year}
+                          </CardTitle>
+                          <CardDescription>
+                            {semesterCourses.length} course{semesterCourses.length !== 1 ? "s" : ""} •{" "}
+                            {semesterPoints} / {semesterTotalPoints} points earned
+                          </CardDescription>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                </CardHeader>
+                {isExpanded && (
+                  <CardContent>
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                   {semesterCourses.map((course) => (
                     <Card key={course.id} className="hover:shadow-md transition-shadow">
                       <CardHeader>
@@ -442,10 +542,110 @@ export default function CoursesPage() {
                       </CardContent>
                     </Card>
                   ))}
-                </div>
-              </div>
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
             );
           })}
+
+          {/* Future Courses Section */}
+          {futureCourses.length > 0 && (
+            <Card className="border-blue-200 dark:border-blue-800">
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => toggleSemester("future")}
+                      >
+                        {expandedSemesters.has("future") ? (
+                          <ChevronUp className="h-4 w-4" />
+                        ) : (
+                          <ChevronDown className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <div>
+                        <CardTitle className="text-2xl text-blue-600 dark:text-blue-400">
+                          Future Courses
+                        </CardTitle>
+                        <CardDescription>
+                          {futureCourses.length} course{futureCourses.length !== 1 ? "s" : ""} planned •{" "}
+                          {futureCourses.reduce((sum, c) => sum + (c.points ?? 0), 0)} total points
+                        </CardDescription>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardHeader>
+              {expandedSemesters.has("future") && (
+                <CardContent>
+                  <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                    {futureCourses.map((course) => (
+                      <Card key={course.id} className="hover:shadow-md transition-shadow">
+                        <CardHeader>
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <CardTitle className="flex items-center gap-2">
+                                <BookOpen className="h-5 w-5" />
+                                {course.name}
+                              </CardTitle>
+                              <CardDescription className="mt-2">
+                                {course.semester} Semester {course.year}
+                              </CardDescription>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEdit(course)}
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDelete(course.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent>
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium">Points</span>
+                              <span className="text-sm font-semibold">{course.points ?? 0}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm text-blue-600">
+                              <TrendingUp className="h-4 w-4" />
+                              <span className="font-medium">Upcoming</span>
+                            </div>
+                            <div>
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-sm font-medium">Progress</span>
+                                <span className="text-sm text-muted-foreground">{course.progress}%</span>
+                              </div>
+                              <div className="w-full bg-muted rounded-full h-2">
+                                <div
+                                  className="bg-blue-500 h-2 rounded-full transition-all"
+                                  style={{ width: `${course.progress}%` }}
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              )}
+            </Card>
+          )}
         </div>
       )}
     </div>
