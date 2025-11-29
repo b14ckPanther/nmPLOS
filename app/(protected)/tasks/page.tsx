@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/firebase/client";
-import { getTasks, createTask, updateTask, deleteTask } from "@/lib/firestore-helpers";
-import type { Task } from "@/firebase/types";
+import { getTasks, createTask, updateTask, deleteTask, getCourses, updateCourse } from "@/lib/firestore-helpers";
+import type { Task, Course } from "@/firebase/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export default function TasksPage() {
   const [user, setUser] = useState<User | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [courses, setCourses] = useState<Course[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
@@ -42,8 +43,12 @@ export default function TasksPage() {
   const loadTasks = useCallback(async (userId: string) => {
     try {
       setLoading(true);
-      const data = await getTasks(userId);
-      setTasks(data);
+      const [tasksData, coursesData] = await Promise.all([
+        getTasks(userId),
+        getCourses(userId),
+      ]);
+      setTasks(tasksData);
+      setCourses(coursesData);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -80,12 +85,37 @@ export default function TasksPage() {
         completed: false,
       };
 
+      let taskId: string;
       if (editingTask) {
+        taskId = editingTask.id;
+        
+        // Handle course assignment changes when editing
+        const oldCourseId = editingTask.courseId;
+        const newCourseId = taskData.courseId;
+        
+        // Remove from old course if course changed
+        if (oldCourseId && oldCourseId !== newCourseId) {
+          const oldCourse = courses.find((c) => c.id === oldCourseId);
+          if (oldCourse) {
+            const assignments = oldCourse.assignments.filter((id) => id !== taskId);
+            await updateCourse(user.uid, oldCourseId, { assignments });
+          }
+        }
+        
         await updateTask(user.uid, editingTask.id, taskData);
         toast({ title: "Task updated", description: "Your task has been updated." });
       } else {
-        await createTask(user.uid, taskData);
+        taskId = await createTask(user.uid, taskData);
         toast({ title: "Task created", description: "Your new task has been created." });
+      }
+
+      // Add to new course if task is linked to a course
+      if (taskData.courseId) {
+        const course = courses.find((c) => c.id === taskData.courseId);
+        if (course && !course.assignments.includes(taskId)) {
+          const assignments = [...course.assignments, taskId];
+          await updateCourse(user.uid, taskData.courseId, { assignments });
+        }
       }
 
       setOpen(false);
@@ -123,7 +153,19 @@ export default function TasksPage() {
     if (!confirm("Are you sure you want to delete this task?")) return;
 
     try {
+      const task = tasks.find((t) => t.id === taskId);
+      
       await deleteTask(user.uid, taskId);
+      
+      // Remove task from course assignments if it was linked to a course
+      if (task?.courseId) {
+        const course = courses.find((c) => c.id === task.courseId);
+        if (course) {
+          const assignments = course.assignments.filter((id) => id !== taskId);
+          await updateCourse(user.uid, task.courseId, { assignments });
+        }
+      }
+      
       toast({ title: "Task deleted", description: "The task has been deleted." });
       loadTasks(user.uid);
     } catch (error: any) {
@@ -224,6 +266,25 @@ export default function TasksPage() {
                     placeholder="Task description"
                     rows={3}
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="courseId">Course (Optional)</Label>
+                  <Select
+                    value={formData.courseId || undefined}
+                    onValueChange={(value) => setFormData({ ...formData, courseId: value === "none" ? "" : value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a course (optional)" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No course</SelectItem>
+                      {courses.map((course) => (
+                        <SelectItem key={course.id} value={course.id}>
+                          {course.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">

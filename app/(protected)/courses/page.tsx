@@ -3,8 +3,8 @@
 import { useEffect, useState, useCallback } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/firebase/client";
-import { getCourses, createCourse, updateCourse, deleteCourse } from "@/lib/firestore-helpers";
-import type { Course } from "@/firebase/types";
+import { getCourses, createCourse, updateCourse, deleteCourse, getTasks } from "@/lib/firestore-helpers";
+import type { Course, Task } from "@/firebase/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -26,6 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 export default function CoursesPage() {
   const [user, setUser] = useState<User | null>(null);
   const [courses, setCourses] = useState<Course[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
@@ -41,8 +42,12 @@ export default function CoursesPage() {
   const loadCourses = useCallback(async (userId: string) => {
     try {
       setLoading(true);
-      const data = await getCourses(userId);
-      setCourses(data);
+      const [coursesData, tasksData] = await Promise.all([
+        getCourses(userId),
+        getTasks(userId),
+      ]);
+      setCourses(coursesData);
+      setTasks(tasksData);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -296,6 +301,33 @@ export default function CoursesPage() {
                     <span>{course.assignments.length} assignments</span>
                     <span>{course.exams.length} exams</span>
                   </div>
+                  {course.assignments.length > 0 && (
+                    <div className="mt-3 pt-3 border-t">
+                      <p className="text-xs font-medium mb-2">Assignments:</p>
+                      <div className="space-y-1">
+                        {tasks
+                          .filter((task) => course.assignments.includes(task.id))
+                          .slice(0, 3)
+                          .map((task) => (
+                            <div key={task.id} className="text-xs text-muted-foreground flex items-center gap-2">
+                              <span className={task.completed ? "line-through opacity-60" : ""}>
+                                {task.title}
+                              </span>
+                              {task.dueDate && (
+                                <span className="text-xs opacity-60">
+                                  ({new Date(task.dueDate).toLocaleDateString()})
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                        {tasks.filter((task) => course.assignments.includes(task.id)).length > 3 && (
+                          <p className="text-xs text-muted-foreground">
+                            +{tasks.filter((task) => course.assignments.includes(task.id)).length - 3} more
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
