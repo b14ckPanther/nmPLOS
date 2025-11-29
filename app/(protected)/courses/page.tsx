@@ -4,12 +4,22 @@ import { useEffect, useState, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/firebase/client";
-import { getCourses, updateCourse, deleteCourse, getTasks, getUserProfile } from "@/lib/firestore-helpers";
+import { getCourses, updateCourse, deleteCourse, getTasks, getUserProfile, setUserProfile as updateUserProfile } from "@/lib/firestore-helpers";
 import type { Course, Task, UserProfile } from "@/firebase/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Plus, Edit2, Trash2, BookOpen, TrendingUp, Award, Target } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export default function CoursesPage() {
   const router = useRouter();
@@ -18,6 +28,8 @@ export default function CoursesPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showEditPoints, setShowEditPoints] = useState(false);
+  const [manualPoints, setManualPoints] = useState(0);
   const { toast } = useToast();
 
   const loadCourses = useCallback(async (userId: string) => {
@@ -84,19 +96,24 @@ export default function CoursesPage() {
       }
       grouped[key].push(course);
     });
-    // Sort semesters by year and semester
+    // Sort semesters by year (descending) and semester (A before B)
     return Object.entries(grouped).sort(([a], [b]) => {
       const [yearA, semA] = a.split("-");
       const [yearB, semB] = b.split("-");
       if (yearA !== yearB) return parseInt(yearB) - parseInt(yearA);
-      return semB.localeCompare(semA);
+      // Semester A should come before Semester B
+      if (semA === "A" && semB === "B") return -1;
+      if (semA === "B" && semB === "A") return 1;
+      return 0;
     });
   }, [courses]);
 
   // Calculate points statistics
   const pointsStats = useMemo(() => {
     const completedCourses = courses.filter((c) => c.completed);
-    const totalPointsEarned = completedCourses.reduce((sum, c) => sum + (c.points ?? 0), 0);
+    const pointsFromCourses = completedCourses.reduce((sum, c) => sum + (c.points ?? 0), 0);
+    const manualPoints = userProfile?.manualEarnedPoints ?? 0;
+    const totalPointsEarned = pointsFromCourses + manualPoints;
     const totalPoints = courses.reduce((sum, c) => sum + (c.points ?? 0), 0);
     const degreeTotalPoints = userProfile?.degreeTotalPoints ?? 0;
     const remainingPoints = degreeTotalPoints > 0 ? Math.max(0, degreeTotalPoints - totalPointsEarned) : 0;
@@ -105,6 +122,8 @@ export default function CoursesPage() {
 
     return {
       totalPointsEarned,
+      pointsFromCourses,
+      manualPoints,
       totalPoints,
       degreeTotalPoints,
       remainingPoints,
@@ -113,6 +132,31 @@ export default function CoursesPage() {
       totalCount: courses.length,
     };
   }, [courses, userProfile]);
+
+  const handleOpenEditPoints = () => {
+    setManualPoints(userProfile?.manualEarnedPoints ?? 0);
+    setShowEditPoints(true);
+  };
+
+  const handleSaveManualPoints = async () => {
+    if (!user) return;
+    try {
+      await updateUserProfile(user.uid, { manualEarnedPoints: manualPoints });
+      const updatedProfile = await getUserProfile(user.uid);
+      setUserProfile(updatedProfile);
+      toast({
+        title: "Points updated",
+        description: "Your manual points have been saved.",
+      });
+      setShowEditPoints(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update points",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (loading) {
     return (
@@ -139,11 +183,19 @@ export default function CoursesPage() {
       {userProfile?.degreeTotalPoints && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Target className="h-5 w-5" />
-              Degree Progress
-            </CardTitle>
-            <CardDescription>Track your progress towards completing your degree</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="h-5 w-5" />
+                  Degree Progress
+                </CardTitle>
+                <CardDescription>Track your progress towards completing your degree</CardDescription>
+              </div>
+              <Button variant="outline" size="sm" onClick={handleOpenEditPoints}>
+                <Edit2 className="h-4 w-4 mr-2" />
+                Edit Points
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -169,6 +221,11 @@ export default function CoursesPage() {
                 <div>
                   <p className="text-sm text-muted-foreground">Points Earned</p>
                   <p className="text-2xl font-bold">{pointsStats.totalPointsEarned}</p>
+                  {pointsStats.manualPoints > 0 && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      ({pointsStats.pointsFromCourses} from courses + {pointsStats.manualPoints} manual)
+                    </p>
+                  )}
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">Remaining</p>
@@ -187,6 +244,54 @@ export default function CoursesPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Edit Manual Points Dialog */}
+      <Dialog open={showEditPoints} onOpenChange={setShowEditPoints}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Previously Earned Points</DialogTitle>
+            <DialogDescription>
+              Enter the total points you&apos;ve already earned from courses completed before adding them to this system.
+              This will be added to your points from courses in the system.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="manualPoints">Manual Points</Label>
+              <Input
+                id="manualPoints"
+                type="number"
+                value={manualPoints}
+                onChange={(e) => setManualPoints(Math.max(0, parseFloat(e.target.value) || 0))}
+                min={0}
+                step="0.5"
+                placeholder="e.g., 45"
+              />
+              <p className="text-sm text-muted-foreground">
+                Points from previously completed courses not in the system
+              </p>
+            </div>
+            <div className="bg-muted p-3 rounded-lg">
+              <p className="text-sm font-medium mb-1">Total Points Breakdown:</p>
+              <p className="text-sm text-muted-foreground">
+                • From courses in system: {pointsStats.pointsFromCourses} points
+              </p>
+              <p className="text-sm text-muted-foreground">
+                • Manual points: {manualPoints} points
+              </p>
+              <p className="text-sm font-semibold mt-2">
+                Total: {pointsStats.pointsFromCourses + manualPoints} / {pointsStats.degreeTotalPoints} points
+              </p>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditPoints(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveManualPoints}>Save</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {courses.length === 0 ? (
         <Card>

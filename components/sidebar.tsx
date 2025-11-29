@@ -17,6 +17,7 @@ import {
   Settings,
   Menu,
   X,
+  Award,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -26,6 +27,7 @@ const navItems = [
   { href: "/schedule", label: "Schedule", icon: Calendar },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/courses", label: "Courses", icon: BookOpen },
+  { href: "/grades", label: "Grades", icon: Award },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/exams", label: "Exams", icon: GraduationCap },
   { href: "/finance", label: "Finance", icon: Wallet },

@@ -5,6 +5,7 @@ export interface UserProfile {
   email: string;
   photoURL?: string;
   degreeTotalPoints?: number; // Total points required for degree (e.g., 120 for BSc)
+  manualEarnedPoints?: number; // Manually set points for previously completed courses not in system
   createdAt: Date;
   updatedAt: Date;
 }

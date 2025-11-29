@@ -266,9 +266,46 @@ export default function AddCoursePage() {
               </p>
             </div>
 
+            <div className="border rounded-lg p-4 bg-muted/50">
+              <div className="flex items-center space-x-2 mb-2">
+                <input
+                  type="checkbox"
+                  id="completed"
+                  checked={formData.completed}
+                  onChange={(e) => {
+                    const isCompleted = e.target.checked;
+                    setFormData({
+                      ...formData,
+                      completed: isCompleted,
+                      progress: isCompleted ? 100 : formData.progress,
+                    });
+                  }}
+                  className="h-4 w-4 rounded border-gray-300"
+                />
+                <Label htmlFor="completed" className="cursor-pointer font-medium">
+                  This course is already completed
+                </Label>
+              </div>
+              <p className="text-sm text-muted-foreground ml-6">
+                Check this if you&apos;ve already finished this course. Perfect for adding past courses!
+              </p>
+              {formData.completed && (
+                <div className="mt-3 ml-6 p-3 bg-green-50 dark:bg-green-950/20 rounded border border-green-200 dark:border-green-800">
+                  <p className="text-sm font-medium text-green-800 dark:text-green-200">
+                    ✓ Completed course - Progress set to 100%
+                  </p>
+                  <p className="text-xs text-green-700 dark:text-green-300 mt-1">
+                    You can enter your grade below to track your performance.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="grade">Grade (Optional)</Label>
+                <Label htmlFor="grade">
+                  Grade {formData.completed ? "(Recommended)" : "(Optional)"}
+                </Label>
                 <Input
                   id="grade"
                   type="number"
@@ -278,9 +315,10 @@ export default function AddCoursePage() {
                   max={100}
                   step="0.1"
                   placeholder="e.g., 85"
+                  className={formData.completed ? "border-green-500" : ""}
                 />
                 <p className="text-sm text-muted-foreground">
-                  Enter your grade (0-100) if you&apos;ve completed the course
+                  Enter your grade (0-100) {formData.completed ? "for this completed course" : "if completed"}
                 </p>
               </div>
               <div className="space-y-2">
@@ -299,26 +337,12 @@ export default function AddCoursePage() {
                   max={100}
                   disabled={formData.completed}
                 />
+                {formData.completed && (
+                  <p className="text-sm text-muted-foreground">
+                    Automatically set to 100% for completed courses
+                  </p>
+                )}
               </div>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                id="completed"
-                checked={formData.completed}
-                onChange={(e) => {
-                  setFormData({
-                    ...formData,
-                    completed: e.target.checked,
-                    progress: e.target.checked ? 100 : formData.progress,
-                  });
-                }}
-                className="h-4 w-4 rounded border-gray-300"
-              />
-              <Label htmlFor="completed" className="cursor-pointer">
-                Course completed
-              </Label>
             </div>
 
             <div className="flex gap-4 pt-4">
