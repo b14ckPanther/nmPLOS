@@ -78,8 +78,15 @@ export default function ExamsPage() {
     if (!user) return;
 
     try {
-      const [datePart, timePart] = formData.date.split("T");
-      const examDate = new Date(`${datePart}T${formData.time || "00:00"}`);
+      // Handle date input (format: YYYY-MM-DD) and time input (format: HH:MM)
+      const datePart = formData.date.includes("T") ? formData.date.split("T")[0] : formData.date;
+      const timePart = formData.time || "00:00";
+      const examDate = new Date(`${datePart}T${timePart}`);
+      
+      // Validate date
+      if (isNaN(examDate.getTime())) {
+        throw new Error("Invalid date or time");
+      }
       
       const examData = {
         name: formData.name,
