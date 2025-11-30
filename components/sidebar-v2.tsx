@@ -12,7 +12,6 @@ import {
   FolderKanban,
   GraduationCap,
   Wallet,
-  Mail,
   Bot,
   Settings,
   Menu,
@@ -43,7 +42,6 @@ const iconMap: Record<string, any> = {
   FolderKanban,
   GraduationCap,
   Wallet,
-  Mail,
   Bot,
   Settings,
   Award,
@@ -155,10 +153,25 @@ export function SidebarV2() {
     try {
       const prefs = await getSidebarPreferences(userId);
       if (prefs && prefs.categories.length > 0) {
-        setCategories(prefs.categories);
+        // Filter out Gmail items from saved preferences
+        const cleanedCategories = prefs.categories.map(category => ({
+          ...category,
+          items: category.items.filter(item => item.href !== "/gmail")
+        })).filter(category => category.items.length > 0); // Remove empty categories
+        
+        // If we removed Gmail, save the cleaned preferences
+        const hadGmail = prefs.categories.some(cat => cat.items.some(item => item.href === "/gmail"));
+        if (hadGmail && cleanedCategories.length > 0) {
+          await saveSidebarPreferences(userId, cleanedCategories);
+        }
+        
+        setCategories(cleanedCategories.length > 0 ? cleanedCategories : defaultCategories);
+      } else {
+        setCategories(defaultCategories);
       }
     } catch (error) {
       console.error("Error loading sidebar preferences:", error);
+      setCategories(defaultCategories);
     } finally {
       setLoading(false);
     }
