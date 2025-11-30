@@ -113,6 +113,16 @@ service cloud.firestore {
       match /subscriptions/{subscriptionId} {
         allow read, write: if isOwner(userId);
       }
+      
+      // Loans - users can only access their own loans
+      match /loans/{loanId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Apartment Payments - users can only access their own apartment payments
+      match /apartmentPayments/{paymentId} {
+        allow read, write: if isOwner(userId);
+      }
     }
     
     // Deny all other access

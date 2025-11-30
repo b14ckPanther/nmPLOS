@@ -27,7 +27,9 @@ import type {
   Job,
   Shift,
   WorkRecord,
-  Subscription
+  Subscription,
+  Loan,
+  ApartmentPayment
 } from "@/firebase/types";
 
 // Helper to ensure db is available
@@ -501,6 +503,103 @@ export const updateSubscription = async (uid: string, subscriptionId: string, up
 export const deleteSubscription = async (uid: string, subscriptionId: string): Promise<void> => {
   const firestore = ensureDb();
   const docRef = doc(firestore, `users/${uid}/subscriptions`, subscriptionId);
+  await deleteDoc(docRef);
+};
+
+// Loans
+export const getLoans = async (uid: string): Promise<Loan[]> => {
+  const firestore = ensureDb();
+  const loansRef = collection(firestore, `users/${uid}/loans`);
+  const q = query(loansRef, orderBy("createdAt", "desc"));
+  const snapshot = await getDocs(q);
+  
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    startDate: toDate(doc.data().startDate) || new Date(),
+    createdAt: toDate(doc.data().createdAt) || new Date(),
+    updatedAt: toDate(doc.data().updatedAt) || new Date(),
+  })) as Loan[];
+};
+
+export const createLoan = async (uid: string, loan: Omit<Loan, "id" | "createdAt" | "updatedAt">): Promise<string> => {
+  const firestore = ensureDb();
+  const loansRef = collection(firestore, `users/${uid}/loans`);
+  const docRef = doc(loansRef);
+  await setDoc(docRef, {
+    ...loan,
+    startDate: toTimestamp(loan.startDate),
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+  return docRef.id;
+};
+
+export const updateLoan = async (uid: string, loanId: string, updates: Partial<Loan>): Promise<void> => {
+  const firestore = ensureDb();
+  const docRef = doc(firestore, `users/${uid}/loans`, loanId);
+  const updateData: any = { ...updates };
+  if (updates.startDate !== undefined) {
+    updateData.startDate = updates.startDate ? toTimestamp(updates.startDate) : null;
+  }
+  updateData.updatedAt = Timestamp.now();
+  await updateDoc(docRef, updateData);
+};
+
+export const deleteLoan = async (uid: string, loanId: string): Promise<void> => {
+  const firestore = ensureDb();
+  const docRef = doc(firestore, `users/${uid}/loans`, loanId);
+  await deleteDoc(docRef);
+};
+
+// Apartment Payments
+export const getApartmentPayments = async (uid: string): Promise<ApartmentPayment[]> => {
+  const firestore = ensureDb();
+  const paymentsRef = collection(firestore, `users/${uid}/apartmentPayments`);
+  const q = query(paymentsRef, orderBy("startDate", "desc"));
+  const snapshot = await getDocs(q);
+  
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    startDate: toDate(doc.data().startDate) || new Date(),
+    endDate: toDate(doc.data().endDate) || new Date(),
+    createdAt: toDate(doc.data().createdAt) || new Date(),
+    updatedAt: toDate(doc.data().updatedAt) || new Date(),
+  })) as ApartmentPayment[];
+};
+
+export const createApartmentPayment = async (uid: string, payment: Omit<ApartmentPayment, "id" | "createdAt" | "updatedAt">): Promise<string> => {
+  const firestore = ensureDb();
+  const paymentsRef = collection(firestore, `users/${uid}/apartmentPayments`);
+  const docRef = doc(paymentsRef);
+  await setDoc(docRef, {
+    ...payment,
+    startDate: toTimestamp(payment.startDate),
+    endDate: toTimestamp(payment.endDate),
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+  return docRef.id;
+};
+
+export const updateApartmentPayment = async (uid: string, paymentId: string, updates: Partial<ApartmentPayment>): Promise<void> => {
+  const firestore = ensureDb();
+  const docRef = doc(firestore, `users/${uid}/apartmentPayments`, paymentId);
+  const updateData: any = { ...updates };
+  if (updates.startDate !== undefined) {
+    updateData.startDate = updates.startDate ? toTimestamp(updates.startDate) : null;
+  }
+  if (updates.endDate !== undefined) {
+    updateData.endDate = updates.endDate ? toTimestamp(updates.endDate) : null;
+  }
+  updateData.updatedAt = Timestamp.now();
+  await updateDoc(docRef, updateData);
+};
+
+export const deleteApartmentPayment = async (uid: string, paymentId: string): Promise<void> => {
+  const firestore = ensureDb();
+  const docRef = doc(firestore, `users/${uid}/apartmentPayments`, paymentId);
   await deleteDoc(docRef);
 };
 

@@ -90,6 +90,7 @@ const defaultCategories: SidebarCategory[] = [
     items: [
       { href: "/finance", label: "Finance", iconName: "Wallet" },
       { href: "/subscriptions", label: "Subscriptions", iconName: "Wallet" },
+      { href: "/loans", label: "Loans", iconName: "Wallet" },
     ],
     order: 3,
     collapsed: false,

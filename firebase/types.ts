@@ -94,6 +94,30 @@ export interface Subscription {
   updatedAt: Date;
 }
 
+export interface Loan {
+  id: string;
+  name: string;
+  totalAmount: number; // Total loan amount in NIS
+  remainingAmount: number; // Remaining amount to pay
+  monthlyPayment: number; // Monthly payment amount in NIS
+  paymentsLeft: number; // Number of payments remaining
+  startDate: Date;
+  interestRate?: number; // Optional interest rate percentage
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface ApartmentPayment {
+  id: string;
+  amount: number; // Monthly rent amount in NIS
+  startDate: Date;
+  endDate: Date;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Bill {
   id: string;
   name: string;
