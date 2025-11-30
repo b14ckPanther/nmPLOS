@@ -18,16 +18,23 @@ export async function POST(request: NextRequest) {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
-    const prompt = `Generate a beautiful and meaningful Islamic Dua (prayer/supplication) ${category ? `about ${category}` : "for today"}. 
+    const prompt = `Generate a brief and concise Islamic Dua (prayer/supplication) ${category ? `about ${category}` : "for today"}. 
 
 Requirements:
-- The Dua should be authentic and meaningful
-- Include the Arabic text with proper diacritics
-- Provide English translation
-- Make it personal and relevant to daily life
-- Format it nicely with clear separation between Arabic and English
+- Keep it SHORT and brief (2-3 lines maximum in Arabic)
+- Include the Arabic text with proper diacritics (tashkeel)
+- Provide a brief English explanation/translation (1-2 sentences)
+- Make it authentic and meaningful
+- Format as: Arabic text first, then English explanation below
 
-${category ? `Category: ${category}` : "Make it a general daily Dua"}`;
+${category ? `Category: ${category}` : "Make it a general daily Dua"}
+
+Format:
+Arabic (with diacritics):
+[Arabic text here]
+
+English:
+[Brief explanation here]`;
 
     const result = await model.generateContent(prompt);
     const response = await result.response;

@@ -6,8 +6,8 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
-    const lat = searchParams.get("lat") || "31.7683"; // Default: Jerusalem
-    const lng = searchParams.get("lng") || "35.2137";
+    const lat = searchParams.get("lat") || "32.7940"; // Default: Haifa, Israel
+    const lng = searchParams.get("lng") || "34.9896";
     const method = searchParams.get("method") || "2"; // 2 = ISNA (Islamic Society of North America)
     
     // Get today's date

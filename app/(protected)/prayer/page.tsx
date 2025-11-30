@@ -57,8 +57,8 @@ export default function PrayerPage() {
   const loadPrayerTimes = React.useCallback(async () => {
     try {
       setLoadingTimes(true);
-      // In production, get user's location from settings or browser geolocation
-      const response = await fetch("/api/prayer/times");
+      // Haifa, Israel coordinates: 32.7940, 34.9896
+      const response = await fetch("/api/prayer/times?lat=32.7940&lng=34.9896");
       const data = await response.json();
       if (data.error) throw new Error(data.error);
       setPrayerTimes(data);
@@ -73,6 +73,22 @@ export default function PrayerPage() {
     }
   }, [toast]);
 
+  // Auto-refresh prayer times every hour
+  React.useEffect(() => {
+    if (!prayerTimes) return;
+    
+    const refreshInterval = setInterval(() => {
+      fetch("/api/prayer/times?lat=32.7940&lng=34.9896")
+        .then(res => res.json())
+        .then(data => {
+          if (!data.error) setPrayerTimes(data);
+        })
+        .catch(err => console.error("Failed to refresh prayer times:", err));
+    }, 60 * 60 * 1000); // Every hour
+
+    return () => clearInterval(refreshInterval);
+  }, [prayerTimes]);
+
   const loadSurahs = React.useCallback(async () => {
     try {
       // Load list of Quran surahs from free API
@@ -86,7 +102,7 @@ export default function PrayerPage() {
     }
   }, []);
 
-  // Load prayer times
+  // Load prayer times and surahs
   React.useEffect(() => {
     loadPrayerTimes();
     loadSurahs();
@@ -126,11 +142,29 @@ export default function PrayerPage() {
         audio.currentTime = 0;
       }
 
-      // Play from Quran.com API
-      const audioUrl = `https://cdn.islamic.network/quran/audio/128/ar.alafasy/${surahNumber}/${ayahNumber}.mp3`;
-      const newAudio = new Audio(audioUrl);
+      // Use alquran.cloud API which provides reliable audio
+      // Format: https://api.alquran.cloud/v1/ayah/${surahNumber}:${ayahNumber}/ar.alafasy
+      const audioUrl = `https://api.alquran.cloud/v1/ayah/${surahNumber}:${ayahNumber}/ar.alafasy`;
       
-      newAudio.volume = isMuted ? 0 : volume;
+      // First fetch the audio URL from the API
+      const audioResponse = await fetch(audioUrl);
+      const audioData = await audioResponse.json();
+      
+      if (audioData.code !== 200 || !audioData.data?.audio) {
+        throw new Error("Audio not found for this ayah");
+      }
+      
+      const actualAudioUrl = audioData.data.audio;
+
+      const newAudio = new Audio(actualAudioUrl);
+      
+      // Set up event handlers before playing
+      newAudio.onerror = (e) => {
+        console.error("Audio error:", e);
+        setIsPlaying(false);
+        setPlayingAyah(null);
+        throw new Error("Failed to load audio file");
+      };
       
       newAudio.onended = () => {
         setIsPlaying(false);
@@ -140,17 +174,28 @@ export default function PrayerPage() {
       newAudio.onplay = () => {
         setIsPlaying(true);
         setPlayingAyah(ayahNumber);
+        setSelectedSurah(surahNumber);
       };
 
+      newAudio.volume = isMuted ? 0 : volume;
+      
+      // Preload the audio
+      newAudio.preload = "auto";
+      
+      // Try to play
       await newAudio.play();
+      
+      // If we got here, playback started successfully
       setAudio(newAudio);
-      setSelectedSurah(surahNumber);
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Audio playback error:", error);
       toast({
         title: "Error",
-        description: "Failed to play audio",
+        description: error.message || "Failed to play audio. Please try again.",
         variant: "destructive",
       });
+      setIsPlaying(false);
+      setPlayingAyah(null);
     }
   };
 
@@ -293,8 +338,21 @@ export default function PrayerPage() {
 
             {dua && (
               <div className="p-6 rounded-lg border bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20">
-                <div className="prose dark:prose-invert max-w-none whitespace-pre-wrap">
-                  {dua.dua}
+                <div 
+                  className="prose dark:prose-invert max-w-none whitespace-pre-wrap"
+                  dir="rtl"
+                  style={{ textAlign: "right", fontFamily: "'Amiri', 'Arabic Typesetting', 'Traditional Arabic', serif" }}
+                >
+                  <div className="text-2xl mb-4" style={{ direction: "rtl", textAlign: "right" }}>
+                    {dua.dua.split(/English:|Translation:/i)[0].trim()}
+                  </div>
+                  <div 
+                    className="text-base mt-4 pt-4 border-t"
+                    dir="ltr"
+                    style={{ textAlign: "left", direction: "ltr" }}
+                  >
+                    {dua.dua.split(/English:|Translation:/i)[1]?.trim() || ""}
+                  </div>
                 </div>
               </div>
             )}
