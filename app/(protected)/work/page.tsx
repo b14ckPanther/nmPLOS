@@ -62,6 +62,7 @@ export default function WorkPage() {
   const [editingRecord, setEditingRecord] = useState<WorkRecord | null>(null);
   const [shiftsExpanded, setShiftsExpanded] = useState(false);
   const [expandedShifts, setExpandedShifts] = useState<Set<string>>(new Set());
+  const [shiftsListExpanded, setShiftsListExpanded] = useState(true);
   const { toast } = useToast();
 
   const toggleShiftExpansion = (shiftId: string) => {
@@ -1432,154 +1433,16 @@ export default function WorkPage() {
 
           {selectedJob && (
             <>
-              {/* Job Info & Days Tracking */}
-              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <DollarSign className="h-4 w-4" />
-                      Payment Info
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Hourly Rate:</span>
-                        <span className="text-sm font-medium">₪{selectedJob.hourlyRate.toFixed(2)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Overtime Rate:</span>
-                        <span className="text-sm font-medium">{selectedJob.overtimeRate}x</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Overtime After:</span>
-                        <span className="text-sm font-medium">{selectedJob.overtimeThreshold}h</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Transport:</span>
-                        <span className="text-sm font-medium">₪{selectedJob.transportPayment.toFixed(2)}/mo</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <Plane className="h-4 w-4" />
-                      Vacation Days
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Total:</span>
-                        <span className="text-sm font-medium">{selectedJob.paidVacationDays} days</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Used:</span>
-                        <span className="text-sm font-medium">{selectedJob.usedVacationDays} days</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Remaining:</span>
-                        <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                          {selectedJob.paidVacationDays - selectedJob.usedVacationDays} days
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="text-sm font-medium flex items-center gap-2">
-                      <Heart className="h-4 w-4" />
-                      Illness Days
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Total:</span>
-                        <span className="text-sm font-medium">{selectedJob.illnessDays} days</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Used:</span>
-                        <span className="text-sm font-medium">{selectedJob.usedIllnessDays} days</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-sm text-muted-foreground">Remaining:</span>
-                        <span className="text-sm font-medium text-green-600 dark:text-green-400">
-                          {selectedJob.illnessDays - selectedJob.usedIllnessDays} days
-                        </span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* Upcoming Shifts */}
-              {upcomingShifts.length > 0 && (
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                      <Calendar className="h-5 w-5" />
-                      Upcoming Shifts
-                    </CardTitle>
-                    <CardDescription>Your next scheduled shifts</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2">
-                      {upcomingShifts.map((shift) => {
-                        const job = jobs.find(j => j.id === shift.jobId);
-                        return (
-                          <div
-                            key={shift.id}
-                            className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
-                          >
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Clock className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">{job?.title || "Unknown Job"}</span>
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                {format(shift.date, "MMM d, yyyy")} • {shift.startTime} - {shift.endTime} ({shift.hours}h)
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleEditShift(shift)}
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleDeleteShift(shift.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </CardContent>
-                </Card>
-              )}
-
-              {/* Monthly View */}
+              {/* Monthly Salary Calculation - Moved to top */}
               <Card>
                 <CardHeader>
                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div>
                       <CardTitle className="flex items-center gap-2">
-                        <Calendar className="h-5 w-5" />
-                        {format(selectedMonth, "MMMM yyyy")}
+                        <Calculator className="h-5 w-5" />
+                        Monthly Salary Calculation - {format(selectedMonth, "MMMM yyyy")}
                       </CardTitle>
-                      <CardDescription>Shifts and salary calculation for this month</CardDescription>
+                      <CardDescription>Salary calculation for the selected month</CardDescription>
                     </div>
                     <div className="flex gap-2 w-full sm:w-auto">
                       <Button
@@ -1609,9 +1472,8 @@ export default function WorkPage() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="overflow-x-hidden">
-                  {/* Salary Calculator */}
-                  <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 rounded-xl border border-blue-200/50 dark:border-blue-800/50">
+                <CardContent>
+                  <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 rounded-xl border border-blue-200/50 dark:border-blue-800/50">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                       <div className="flex items-center gap-2 flex-wrap">
                         <Calculator className="h-5 w-5 text-blue-600 dark:text-blue-400" />
@@ -1679,7 +1541,88 @@ export default function WorkPage() {
                       </div>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
 
+              {/* Upcoming Shifts */}
+              {upcomingShifts.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <Calendar className="h-5 w-5" />
+                      Upcoming Shifts
+                    </CardTitle>
+                    <CardDescription>Your next scheduled shifts</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      {upcomingShifts.map((shift) => {
+                        const job = jobs.find(j => j.id === shift.jobId);
+                        return (
+                          <div
+                            key={shift.id}
+                            className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                          >
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Clock className="h-4 w-4 text-muted-foreground" />
+                                <span className="font-medium">{job?.title || "Unknown Job"}</span>
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {format(shift.date, "MMM d, yyyy")} • {shift.startTime} - {shift.endTime} ({shift.hours}h)
+                              </div>
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditShift(shift)}
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteShift(shift.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Monthly View - Shifts List */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="flex items-center gap-2">
+                        <Calendar className="h-5 w-5" />
+                        Shifts - {format(selectedMonth, "MMMM yyyy")}
+                      </CardTitle>
+                      <CardDescription>Shifts for the selected month</CardDescription>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setShiftsListExpanded(!shiftsListExpanded)}
+                      className="h-8 w-8"
+                    >
+                      {shiftsListExpanded ? (
+                        <ChevronUp className="h-4 w-4" />
+                      ) : (
+                        <ChevronDown className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                </CardHeader>
+                {shiftsListExpanded && (
+                  <CardContent className="overflow-x-hidden">
                   {/* Shifts List */}
                   {monthShifts.length === 0 ? (
                     <div className="text-center py-8 text-muted-foreground">
@@ -1846,7 +1789,8 @@ export default function WorkPage() {
                       })}
                     </div>
                   )}
-                </CardContent>
+                  </CardContent>
+                )}
               </Card>
 
               {/* Annual Income Overview - All Years */}
@@ -1984,6 +1928,92 @@ export default function WorkPage() {
                   </CardContent>
                 </Card>
               )}
+
+              {/* Job Info & Days Tracking - Moved to bottom */}
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <DollarSign className="h-4 w-4" />
+                      Payment Info
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Hourly Rate:</span>
+                        <span className="text-sm font-medium">₪{selectedJob.hourlyRate.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Overtime Rate:</span>
+                        <span className="text-sm font-medium">{selectedJob.overtimeRate}x</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Overtime After:</span>
+                        <span className="text-sm font-medium">{selectedJob.overtimeThreshold}h</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Transport:</span>
+                        <span className="text-sm font-medium">₪{selectedJob.transportPayment.toFixed(2)}/mo</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <Plane className="h-4 w-4" />
+                      Vacation Days
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Total:</span>
+                        <span className="text-sm font-medium">{selectedJob.paidVacationDays} days</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Used:</span>
+                        <span className="text-sm font-medium">{selectedJob.usedVacationDays} days</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Remaining:</span>
+                        <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                          {selectedJob.paidVacationDays - selectedJob.usedVacationDays} days
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-sm font-medium flex items-center gap-2">
+                      <Heart className="h-4 w-4" />
+                      Illness Days
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Total:</span>
+                        <span className="text-sm font-medium">{selectedJob.illnessDays} days</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Used:</span>
+                        <span className="text-sm font-medium">{selectedJob.usedIllnessDays} days</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-sm text-muted-foreground">Remaining:</span>
+                        <span className="text-sm font-medium text-green-600 dark:text-green-400">
+                          {selectedJob.illnessDays - selectedJob.usedIllnessDays} days
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
             </>
           )}
 

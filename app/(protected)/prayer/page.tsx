@@ -4,7 +4,7 @@ import * as React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Moon, Clock, BookOpen, Loader2, Play, Pause, Volume2, VolumeX, SkipBack, SkipForward, Check } from "lucide-react";
+import { Moon, Clock, BookOpen, Loader2, Play, Pause, SkipBack, SkipForward, Check, ChevronLeft, ChevronRight, RotateCw } from "lucide-react";
 import { useQuranAudio } from "@/components/quran-audio-provider";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/firebase/client";
@@ -58,19 +58,14 @@ export default function PrayerPage() {
     currentSurah,
     currentAyah,
     totalAyahs,
-    volume,
-    isMuted,
-    currentTime,
-    duration,
     playAyah,
     pauseAudio,
     resumeAudio,
-    stopAudio,
-    toggleMute,
-    setVolume,
-    seekTo,
     playNextAyah,
     playPreviousAyah,
+    playNextSurah,
+    playPreviousSurah,
+    repeatAyah,
   } = useQuranAudio();
 
   const loadPrayerTimes = React.useCallback(async () => {
@@ -188,12 +183,6 @@ export default function PrayerPage() {
     }
   };
 
-  const formatTime = (seconds: number): string => {
-    if (isNaN(seconds) || !isFinite(seconds)) return "0:00";
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
-  };
 
   const formatPrayerTime = (time: string) => {
     return time.split(" ")[0]; // Remove timezone info if present
@@ -470,33 +459,18 @@ export default function PrayerPage() {
                   </div>
                 </div>
 
-                {/* Progress Bar - Modern */}
-                <div className="space-y-2">
-                  <div className="relative w-full h-1.5 bg-slate-700/50 rounded-full overflow-hidden">
-                    <div
-                      className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-500 via-blue-400 to-cyan-400 rounded-full transition-all ease-linear"
-                      style={{
-                        width: duration > 0 ? `${((currentTime || 0) / duration) * 100}%` : '0%',
-                        transition: 'width 0.1s linear'
-                      }}
-                    />
-                    <input
-                      type="range"
-                      min="0"
-                      max={duration || 0}
-                      value={currentTime || 0}
-                      onChange={(e) => seekTo(Number(e.target.value))}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                    />
-                  </div>
-                  <div className="flex justify-between text-xs text-slate-400 font-mono">
-                    <span>{formatTime(currentTime)}</span>
-                    <span>{formatTime(duration)}</span>
-                  </div>
-                </div>
-
-                {/* Control Buttons - Modern */}
-                <div className="flex items-center gap-3">
+                {/* Control Buttons */}
+                <div className="flex items-center justify-center gap-3">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => playPreviousSurah(surahs)}
+                    disabled={!currentSurah || !surahs.length || surahs.findIndex(s => s.number === currentSurah) === 0}
+                    title="Previous Surah"
+                    className="h-10 w-10 rounded-full bg-slate-700/50 hover:bg-slate-600/50 text-white disabled:opacity-30"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
                   <Button
                     variant="ghost"
                     size="icon"
@@ -518,6 +492,16 @@ export default function PrayerPage() {
                   <Button
                     variant="ghost"
                     size="icon"
+                    onClick={repeatAyah}
+                    disabled={!currentSurah || !currentAyah}
+                    title="Repeat Ayah"
+                    className="h-10 w-10 rounded-full bg-slate-700/50 hover:bg-slate-600/50 text-white disabled:opacity-30"
+                  >
+                    <RotateCw className="h-5 w-5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
                     onClick={playNextAyah}
                     disabled={!currentSurah || !currentAyah || !totalAyahs || currentAyah >= totalAyahs}
                     title="Next Ayah"
@@ -525,28 +509,16 @@ export default function PrayerPage() {
                   >
                     <SkipForward className="h-5 w-5" />
                   </Button>
-                  <div className="flex-1" />
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={toggleMute}
-                      title={isMuted ? "Unmute" : "Mute"}
-                      className="h-9 w-9 rounded-full bg-slate-700/50 hover:bg-slate-600/50 text-white"
-                    >
-                      {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                    </Button>
-                    <input
-                      type="range"
-                      min="0"
-                      max="1"
-                      step="0.01"
-                      value={volume}
-                      onChange={(e) => setVolume(Number(e.target.value))}
-                      className="w-24 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
-                      title="Volume"
-                    />
-                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => playNextSurah(surahs)}
+                    disabled={!currentSurah || !surahs.length || surahs.findIndex(s => s.number === currentSurah) === surahs.length - 1}
+                    title="Next Surah"
+                    className="h-10 w-10 rounded-full bg-slate-700/50 hover:bg-slate-600/50 text-white disabled:opacity-30"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </Button>
                 </div>
               </div>
             )}

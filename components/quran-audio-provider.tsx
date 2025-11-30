@@ -24,6 +24,9 @@ interface QuranAudioContextType extends QuranAudioState {
   seekTo: (time: number) => void;
   playNextAyah: () => Promise<void>;
   playPreviousAyah: () => Promise<void>;
+  playNextSurah: (surahs: Array<{ number: number; numberOfAyahs: number }>) => Promise<void>;
+  playPreviousSurah: (surahs: Array<{ number: number; numberOfAyahs: number }>) => Promise<void>;
+  repeatAyah: () => Promise<void>;
 }
 
 const QuranAudioContext = createContext<QuranAudioContextType | undefined>(undefined);
@@ -235,6 +238,30 @@ export function QuranAudioProvider({ children }: { children: React.ReactNode }) 
     }
   }, [currentSurah, currentAyah, totalAyahs, playAyah]);
 
+  const playNextSurah = useCallback(async (surahs: Array<{ number: number; numberOfAyahs: number }>) => {
+    if (!currentSurah) return;
+    const currentIndex = surahs.findIndex(s => s.number === currentSurah);
+    if (currentIndex >= 0 && currentIndex < surahs.length - 1) {
+      const nextSurah = surahs[currentIndex + 1];
+      await playAyah(nextSurah.number, 1, nextSurah.numberOfAyahs);
+    }
+  }, [currentSurah, playAyah]);
+
+  const playPreviousSurah = useCallback(async (surahs: Array<{ number: number; numberOfAyahs: number }>) => {
+    if (!currentSurah) return;
+    const currentIndex = surahs.findIndex(s => s.number === currentSurah);
+    if (currentIndex > 0) {
+      const prevSurah = surahs[currentIndex - 1];
+      await playAyah(prevSurah.number, 1, prevSurah.numberOfAyahs);
+    }
+  }, [currentSurah, playAyah]);
+
+  const repeatAyah = useCallback(async () => {
+    if (currentSurah && currentAyah) {
+      await playAyah(currentSurah, currentAyah, totalAyahs);
+    }
+  }, [currentSurah, currentAyah, totalAyahs, playAyah]);
+
   // Update audio ref when audio state changes
   useEffect(() => {
     audioRef.current = audio;
@@ -275,6 +302,9 @@ export function QuranAudioProvider({ children }: { children: React.ReactNode }) 
     seekTo,
     playNextAyah,
     playPreviousAyah,
+    playNextSurah,
+    playPreviousSurah,
+    repeatAyah,
   };
 
   return (

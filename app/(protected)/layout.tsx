@@ -25,7 +25,7 @@ export default function ProtectedLayout({
         <div className="fixed -bottom-20 left-1/2 w-96 h-96 bg-cyan-400/20 dark:bg-cyan-500/10 rounded-full mix-blend-multiply filter blur-3xl opacity-40 dark:opacity-20 animate-blob animation-delay-4000 -z-10" />
 
         <Sidebar />
-        <main className="flex-1 lg:ml-0 relative z-0">
+        <main className="flex-1 lg:ml-64 relative z-0">
           <div className="sticky top-0 z-40 flex h-16 items-center justify-end gap-4 border-b border-white/10 dark:border-white/5 bg-white/80 dark:bg-black/80 backdrop-blur-xl supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-black/60 px-4 lg:px-6">
             <ThemeToggle />
           </div>

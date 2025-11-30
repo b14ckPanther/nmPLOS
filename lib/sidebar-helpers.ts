@@ -30,13 +30,13 @@ export const saveSidebarPreferences = async (
   if (!firestore) throw new Error("Firestore not initialized");
 
   const prefsRef = doc(firestore, `users/${userId}/settings/sidebar`);
+  // Use setDoc without merge to completely replace the data and prevent duplicates
   await setDoc(
     prefsRef,
     {
       categories,
       updatedAt: Timestamp.now(),
-    },
-    { merge: true }
+    }
   );
 };
 

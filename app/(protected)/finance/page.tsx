@@ -3,13 +3,13 @@
 import { useEffect, useState, useCallback } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/firebase/client";
-import { getTransactions, createTransaction, updateTransaction, deleteTransaction, getBills, createBill, updateBill, deleteBill } from "@/lib/firestore-helpers";
+import { getTransactions, createTransaction, updateTransaction, deleteTransaction, getBills, createBill, updateBill, deleteBill, getLoans, getSubscriptions, getApartmentPayments, getPhonePayments } from "@/lib/firestore-helpers";
 import { getWorkRecords } from "@/lib/work-helpers";
-import type { Transaction, Bill, WorkRecord } from "@/firebase/types";
+import type { Transaction, Bill, WorkRecord, Loan, Subscription, ApartmentPayment, PhonePayment } from "@/firebase/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, Edit2, Trash2, TrendingUp, TrendingDown, Wallet, Calendar } from "lucide-react";
+import { Plus, Edit2, Trash2, TrendingUp, TrendingDown, Wallet, Calendar, CreditCard, Home, Smartphone, TrendingDown as LoanIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/page-header";
 import { motion } from "framer-motion";
@@ -32,11 +32,16 @@ export default function FinancePage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
   const [workRecords, setWorkRecords] = useState<WorkRecord[]>([]);
+  const [loans, setLoans] = useState<Loan[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [apartmentPayments, setApartmentPayments] = useState<ApartmentPayment[]>([]);
+  const [phonePayments, setPhonePayments] = useState<PhonePayment[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [openBill, setOpenBill] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [editingBill, setEditingBill] = useState<Bill | null>(null);
+  const [isMonthlyPaymentsExpanded, setIsMonthlyPaymentsExpanded] = useState(true);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState({
@@ -60,14 +65,22 @@ export default function FinancePage() {
   const loadData = useCallback(async (userId: string) => {
     try {
       setLoading(true);
-      const [transactionsData, billsData, recordsData] = await Promise.all([
+      const [transactionsData, billsData, recordsData, loansData, subscriptionsData, apartmentData, phoneData] = await Promise.all([
         getTransactions(userId),
         getBills(userId),
         getWorkRecords(userId),
+        getLoans(userId),
+        getSubscriptions(userId),
+        getApartmentPayments(userId),
+        getPhonePayments(userId),
       ]);
       setTransactions(transactionsData);
       setBills(billsData);
       setWorkRecords(recordsData);
+      setLoans(loansData);
+      setSubscriptions(subscriptionsData);
+      setApartmentPayments(apartmentData);
+      setPhonePayments(phoneData);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -649,6 +662,159 @@ export default function FinancePage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Monthly Payments Summary */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <CardTitle className="flex items-center gap-2">
+                <Calendar className="h-5 w-5" />
+                Monthly Payments
+              </CardTitle>
+              <CardDescription>All your recurring monthly payments in one place</CardDescription>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setIsMonthlyPaymentsExpanded(!isMonthlyPaymentsExpanded)}
+              className="h-8 w-8"
+            >
+              {isMonthlyPaymentsExpanded ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {(() => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+
+            // Get active loans (all loans are considered active if they have remaining payments)
+            const activeLoans = loans.filter(loan => loan.paymentsLeft > 0);
+            const loanPayments = activeLoans.map(loan => ({
+              id: loan.id,
+              name: loan.name,
+              amount: loan.monthlyPayment,
+              type: "Loan" as const,
+              icon: LoanIcon,
+            }));
+
+            // Get active subscriptions
+            const activeSubscriptions = subscriptions.filter(sub => sub.active);
+            const subscriptionPayments = activeSubscriptions.map(sub => ({
+              id: sub.id,
+              name: sub.name,
+              amount: sub.amount,
+              type: "Subscription" as const,
+              icon: CreditCard,
+            }));
+
+            // Get active apartment payments (rent)
+            const activeApartmentPayments = apartmentPayments.filter(apt => {
+              const startDate = new Date(apt.startDate);
+              startDate.setHours(0, 0, 0, 0);
+              const endDate = new Date(apt.endDate);
+              endDate.setHours(0, 0, 0, 0);
+              return today >= startDate && today <= endDate;
+            });
+            const apartmentPaymentItems = activeApartmentPayments.map(apt => ({
+              id: apt.id,
+              name: "Rent",
+              amount: apt.amount,
+              type: "Rent" as const,
+              icon: Home,
+            }));
+
+            // Get active phone payments
+            const activePhonePayments = phonePayments.filter(phone => {
+              const startDate = new Date(phone.startDate);
+              startDate.setHours(0, 0, 0, 0);
+              const endDate = new Date(phone.endDate);
+              endDate.setHours(0, 0, 0, 0);
+              return today >= startDate && today <= endDate;
+            });
+            const phonePaymentItems = activePhonePayments.map(phone => ({
+              id: phone.id,
+              name: phone.phoneName,
+              amount: phone.monthlyPayment,
+              type: "Phone" as const,
+              icon: Smartphone,
+            }));
+
+            // Combine all payments
+            const allMonthlyPayments = [
+              ...loanPayments,
+              ...subscriptionPayments,
+              ...apartmentPaymentItems,
+              ...phonePaymentItems,
+            ];
+
+            // Calculate total
+            const totalMonthly = allMonthlyPayments.reduce((sum, payment) => sum + payment.amount, 0);
+
+            if (allMonthlyPayments.length === 0) {
+              return (
+                <p className="text-sm text-muted-foreground text-center py-8">
+                  No monthly payments found. Add loans, subscriptions, rent, or phone payments to see them here.
+                </p>
+              );
+            }
+
+            return (
+              <div className="space-y-4">
+                {isMonthlyPaymentsExpanded && (
+                  <div className="space-y-2">
+                    {allMonthlyPayments.map((payment) => {
+                      const Icon = payment.icon;
+                      return (
+                        <div
+                          key={`${payment.type}-${payment.id}`}
+                          className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className="p-2 rounded-lg bg-muted">
+                              <Icon className="h-4 w-4" />
+                            </div>
+                            <div>
+                              <p className="font-medium">{payment.name}</p>
+                              <p className="text-xs text-muted-foreground">{payment.type}</p>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="font-semibold text-red-600">₪{payment.amount.toFixed(2)}</p>
+                            <p className="text-xs text-muted-foreground">per month</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+                <div className={`${isMonthlyPaymentsExpanded ? 'pt-4 border-t' : ''}`}>
+                  <div className="flex items-center justify-between p-4 bg-gradient-to-r from-red-500/10 to-orange-500/10 rounded-lg border">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="h-5 w-5" />
+                      <div>
+                        <p className="font-semibold">Total Monthly Payments</p>
+                        <p className="text-xs text-muted-foreground">
+                          {allMonthlyPayments.length} payment{allMonthlyPayments.length !== 1 ? "s" : ""}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-red-600">₪{totalMonthly.toFixed(2)}</p>
+                      <p className="text-xs text-muted-foreground">per month</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })()}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>

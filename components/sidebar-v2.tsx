@@ -162,7 +162,36 @@ export function SidebarV2() {
           items: category.items.filter(item => item.href !== "/gmail")
         })).filter(category => category.items.length > 0 || category.id === "root"); // Keep root category even if empty
         
-        // Merge in any missing default pages
+        // Remove duplicates: if an item appears in multiple categories, keep only the first occurrence
+        const seenHrefs = new Set<string>();
+        let hadDuplicates = false;
+        const originalItemCount = cleanedCategories.reduce((sum, cat) => sum + cat.items.length, 0);
+        
+        cleanedCategories = cleanedCategories.map(category => ({
+          ...category,
+          items: category.items.filter(item => {
+            if (seenHrefs.has(item.href)) {
+              hadDuplicates = true; // Found a duplicate
+              return false; // Duplicate, remove it
+            }
+            seenHrefs.add(item.href);
+            return true;
+          })
+        })).filter(category => category.items.length > 0 || category.id === "root");
+        
+        const cleanedItemCount = cleanedCategories.reduce((sum, cat) => sum + cat.items.length, 0);
+        hadDuplicates = hadDuplicates || (originalItemCount !== cleanedItemCount);
+        
+        // Collect all hrefs that exist in saved preferences (across all categories)
+        // This prevents re-adding items that were moved to different categories
+        const allSavedHrefs = new Set<string>();
+        cleanedCategories.forEach(cat => {
+          cat.items.forEach(item => {
+            allSavedHrefs.add(item.href);
+          });
+        });
+
+        // Merge in any missing default pages - but only if they don't exist in ANY saved category
         const defaultPagesMap = new Map<string, NavItem>();
         defaultCategories.forEach(cat => {
           cat.items.forEach(item => {
@@ -170,13 +199,16 @@ export function SidebarV2() {
           });
         });
 
-        // Add missing pages to their respective categories
+        // Add missing pages to their respective categories ONLY if they don't exist anywhere
         cleanedCategories = cleanedCategories.map(category => {
           const defaultCategory = defaultCategories.find(dc => dc.id === category.id);
           if (!defaultCategory) return category;
 
           const existingHrefs = new Set(category.items.map(item => item.href));
-          const missingItems = defaultCategory.items.filter(item => !existingHrefs.has(item.href));
+          // Only add items that are missing from this category AND not present in any other saved category
+          const missingItems = defaultCategory.items.filter(item => 
+            !existingHrefs.has(item.href) && !allSavedHrefs.has(item.href)
+          );
           
           if (missingItems.length > 0) {
             return {
@@ -187,13 +219,15 @@ export function SidebarV2() {
           return category;
         });
 
-        // Add any missing categories
+        // Add any missing categories - but only with items that don't exist in saved preferences
         const existingCategoryIds = new Set(cleanedCategories.map(cat => cat.id));
         const missingCategories = defaultCategories
           .filter(dc => !existingCategoryIds.has(dc.id))
           .map(dc => ({
             ...dc,
-            items: dc.items.filter(item => item.href !== "/gmail")
+            items: dc.items.filter(item => 
+              item.href !== "/gmail" && !allSavedHrefs.has(item.href)
+            )
           }))
           .filter(cat => cat.items.length > 0);
 
@@ -201,16 +235,19 @@ export function SidebarV2() {
           cleanedCategories = [...cleanedCategories, ...missingCategories];
         }
         
-        // If we made changes, save the updated preferences
+        // If we made changes (removed Gmail, removed duplicates, or added new default items), save the updated preferences
         const hadGmail = prefs.categories.some(cat => cat.items.some(item => item.href === "/gmail"));
         const hasNewPages = cleanedCategories.some(cat => {
-          const defaultCat = defaultCategories.find(dc => dc.id === cat.id);
-          if (!defaultCat) return false;
-          return cat.items.length !== defaultCat.items.length || 
-                 cat.items.some(item => !defaultCat.items.find(di => di.href === item.href));
+          const savedCat = prefs.categories.find(sc => sc.id === cat.id);
+          if (!savedCat) return cat.items.length > 0;
+          const savedHrefs = new Set(savedCat.items.map(item => item.href));
+          const currentHrefs = new Set(cat.items.map(item => item.href));
+          return cat.items.length !== savedCat.items.length || 
+                 cat.items.some(item => !savedHrefs.has(item.href)) ||
+                 savedCat.items.some(item => !currentHrefs.has(item.href));
         });
         
-        if (hadGmail || hasNewPages || missingCategories.length > 0) {
+        if (hadGmail || hadDuplicates || hasNewPages || missingCategories.length > 0) {
           await saveSidebarPreferences(userId, cleanedCategories.filter(cat => cat.id !== "root"));
         }
         
@@ -406,20 +443,21 @@ export function SidebarV2() {
           variant="ghost"
           size="icon"
           onClick={() => setIsMobileOpen(!isMobileOpen)}
+          className="bg-white/90 dark:bg-black/90 backdrop-blur-xl shadow-lg border border-white/10 dark:border-white/5 hover:bg-white dark:hover:bg-black"
         >
           {isMobileOpen ? <X /> : <Menu />}
         </Button>
       </div>
 
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 border-r border-white/10 dark:border-white/5 bg-white/80 dark:bg-black/80 backdrop-blur-xl supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-black/60 h-screen sticky top-0 z-30">
-        <div className="p-6 border-b border-white/10 dark:border-white/5">
+      <aside className="hidden lg:flex flex-col w-64 border-r border-white/10 dark:border-white/5 bg-white/80 dark:bg-black/80 backdrop-blur-xl supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-black/60 fixed top-0 left-0 h-screen z-30">
+        <div className="p-6 border-b border-white/10 dark:border-white/5 flex-shrink-0">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
             nmPLOS
           </h1>
           <p className="text-sm text-muted-foreground">Personal Life OS</p>
         </div>
-        <nav className="flex-1 p-4 overflow-y-auto">
+        <nav className="flex-1 p-4 overflow-y-auto min-h-0">
           {categories
             .filter(cat => cat.id !== "root" || cat.items.length > 0)
             .sort((a, b) => a.order - b.order)
