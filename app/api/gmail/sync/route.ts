@@ -13,7 +13,8 @@ async function getValidAccessToken(userId: string, requestOrigin?: string): Prom
 
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL || requestOrigin || "http://localhost:3001";
+  // Always prioritize request origin over env var
+  const appUrl = requestOrigin || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
   const redirectUri = `${appUrl}/api/gmail/callback`;
 
   if (!clientId || !clientSecret) return null;
@@ -57,9 +58,9 @@ async function getValidAccessToken(userId: string, requestOrigin?: string): Prom
 
 export async function POST(request: NextRequest) {
   try {
-    // Detect the app URL from the request
+    // ALWAYS use request origin (works for both localhost and production)
     const origin = request.nextUrl.origin;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
+    const appUrl = origin || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
 
     const body = await request.json();
     const { userId } = body;

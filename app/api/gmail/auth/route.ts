@@ -16,9 +16,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Detect the app URL from the request
+    // ALWAYS use request origin (works for both localhost and production)
+    // Only fall back to env var if origin is somehow unavailable
     const origin = request.nextUrl.origin;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
+    const appUrl = origin || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
 
     const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
       origin,
       appUrl,
       redirectUri,
-      hasEnvVar: !!process.env.NEXT_PUBLIC_APP_URL,
+      envVar: process.env.NEXT_PUBLIC_APP_URL,
     });
 
     if (!clientId || !clientSecret) {

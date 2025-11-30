@@ -7,9 +7,9 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
-    // Detect the app URL from the request
+    // ALWAYS use request origin (works for both localhost and production)
     const origin = request.nextUrl.origin;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
+    const appUrl = origin || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
 
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get("code");
@@ -68,7 +68,7 @@ export async function GET(request: NextRequest) {
   } catch (error: any) {
     console.error("Gmail callback error:", error);
     const origin = request.nextUrl.origin;
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
+    const appUrl = origin || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001";
     return NextResponse.redirect(
       `${appUrl}/gmail?error=${encodeURIComponent(error.message || "callback_error")}`
     );
