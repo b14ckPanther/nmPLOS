@@ -13,7 +13,7 @@ import {
   QueryConstraint
 } from "firebase/firestore";
 import { db } from "@/firebase/client";
-import type { Job, Shift, WorkRecord } from "@/firebase/types";
+import type { Job, Shift, WorkRecord, FreelanceIncome } from "@/firebase/types";
 
 // Helper to ensure db is available
 const ensureDb = () => {
@@ -187,6 +187,61 @@ export const updateWorkRecord = async (uid: string, recordId: string, updates: P
 export const deleteWorkRecord = async (uid: string, recordId: string): Promise<void> => {
   const firestore = ensureDb();
   const docRef = doc(firestore, `users/${uid}/workRecords`, recordId);
+  await deleteDoc(docRef);
+};
+
+// Freelance Income helpers
+export const getFreelanceIncomes = async (uid: string): Promise<FreelanceIncome[]> => {
+  const firestore = ensureDb();
+  const incomesRef = collection(firestore, `users/${uid}/freelanceIncomes`);
+  const q = query(incomesRef, orderBy("date", "desc"));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    date: toDate(doc.data().date) || new Date(),
+    dueDate: doc.data().dueDate ? toDate(doc.data().dueDate) : undefined,
+    paidDate: doc.data().paidDate ? toDate(doc.data().paidDate) : undefined,
+    createdAt: toDate(doc.data().createdAt) || new Date(),
+    updatedAt: toDate(doc.data().updatedAt) || new Date(),
+  })) as FreelanceIncome[];
+};
+
+export const createFreelanceIncome = async (uid: string, income: Omit<FreelanceIncome, "id" | "createdAt" | "updatedAt">): Promise<string> => {
+  const firestore = ensureDb();
+  const incomesRef = collection(firestore, `users/${uid}/freelanceIncomes`);
+  const docRef = doc(incomesRef);
+  await setDoc(docRef, {
+    ...income,
+    date: toTimestamp(income.date),
+    dueDate: income.dueDate ? toTimestamp(income.dueDate) : null,
+    paidDate: income.paidDate ? toTimestamp(income.paidDate) : null,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+  return docRef.id;
+};
+
+export const updateFreelanceIncome = async (uid: string, incomeId: string, updates: Partial<FreelanceIncome>): Promise<void> => {
+  const firestore = ensureDb();
+  const docRef = doc(firestore, `users/${uid}/freelanceIncomes`, incomeId);
+  const updateData: any = { ...updates };
+  if (updates.date) {
+    updateData.date = toTimestamp(updates.date);
+  }
+  if (updates.dueDate !== undefined) {
+    updateData.dueDate = updates.dueDate ? toTimestamp(updates.dueDate) : null;
+  }
+  if (updates.paidDate !== undefined) {
+    updateData.paidDate = updates.paidDate ? toTimestamp(updates.paidDate) : null;
+  }
+  updateData.updatedAt = Timestamp.now();
+  await updateDoc(docRef, updateData);
+};
+
+export const deleteFreelanceIncome = async (uid: string, incomeId: string): Promise<void> => {
+  const firestore = ensureDb();
+  const docRef = doc(firestore, `users/${uid}/freelanceIncomes`, incomeId);
   await deleteDoc(docRef);
 };
 

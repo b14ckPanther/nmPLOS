@@ -193,3 +193,19 @@ export interface WorkRecord {
   updatedAt: Date;
 }
 
+export interface FreelanceIncome {
+  id: string;
+  title: string;
+  description?: string;
+  amount: number; // Amount in NIS
+  date: Date;
+  client?: string;
+  category?: string; // e.g., "design", "development", "consulting", etc.
+  status: "pending" | "paid" | "overdue";
+  dueDate?: Date;
+  paidDate?: Date;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+

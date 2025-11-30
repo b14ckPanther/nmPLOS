@@ -14,14 +14,18 @@ import {
   deleteShift,
   getWorkRecords,
   createWorkRecord,
-  updateWorkRecord
+  updateWorkRecord,
+  getFreelanceIncomes,
+  createFreelanceIncome,
+  updateFreelanceIncome,
+  deleteFreelanceIncome
 } from "@/lib/work-helpers";
-import type { Job, Shift, WorkRecord } from "@/firebase/types";
+import type { Job, Shift, WorkRecord, FreelanceIncome } from "@/firebase/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit2, Trash2, Briefcase, Calendar, Clock, DollarSign, Plane, Heart, Calculator } from "lucide-react";
+import { Plus, Edit2, Trash2, Briefcase, Calendar, Clock, DollarSign, Plane, Heart, Calculator, FileText, TrendingUp } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/page-header";
 import { motion } from "framer-motion";
@@ -43,14 +47,17 @@ export default function WorkPage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [workRecords, setWorkRecords] = useState<WorkRecord[]>([]);
+  const [freelanceIncomes, setFreelanceIncomes] = useState<FreelanceIncome[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [selectedMonth, setSelectedMonth] = useState<Date>(new Date());
   const [openJobDialog, setOpenJobDialog] = useState(false);
   const [openShiftDialog, setOpenShiftDialog] = useState(false);
+  const [openFreelanceDialog, setOpenFreelanceDialog] = useState(false);
   const [openSaveRecordDialog, setOpenSaveRecordDialog] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
+  const [editingFreelance, setEditingFreelance] = useState<FreelanceIncome | null>(null);
   const [editingRecord, setEditingRecord] = useState<WorkRecord | null>(null);
   const { toast } = useToast();
 
@@ -77,17 +84,32 @@ export default function WorkPage() {
     notes: "",
   });
 
+  const [freelanceFormData, setFreelanceFormData] = useState({
+    title: "",
+    description: "",
+    amount: "",
+    date: new Date().toISOString().split("T")[0],
+    client: "",
+    category: "",
+    status: "pending" as "pending" | "paid" | "overdue",
+    dueDate: "",
+    paidDate: "",
+    notes: "",
+  });
+
   const loadData = useCallback(async (userId: string) => {
     try {
       setLoading(true);
-      const [jobsData, shiftsData, recordsData] = await Promise.all([
+      const [jobsData, shiftsData, recordsData, freelanceData] = await Promise.all([
         getJobs(userId),
         getShifts(userId),
         getWorkRecords(userId),
+        getFreelanceIncomes(userId),
       ]);
       setJobs(jobsData);
       setShifts(shiftsData);
       setWorkRecords(recordsData);
+      setFreelanceIncomes(freelanceData);
       
       if (jobsData.length > 0 && !selectedJob) {
         setSelectedJob(jobsData[0]);
@@ -504,6 +526,94 @@ export default function WorkPage() {
     }
   };
 
+  const resetFreelanceForm = () => {
+    setFreelanceFormData({
+      title: "",
+      description: "",
+      amount: "",
+      date: new Date().toISOString().split("T")[0],
+      client: "",
+      category: "",
+      status: "pending",
+      dueDate: "",
+      paidDate: "",
+      notes: "",
+    });
+    setEditingFreelance(null);
+  };
+
+  const handleFreelanceSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    try {
+      const incomeData = {
+        title: freelanceFormData.title,
+        description: freelanceFormData.description || undefined,
+        amount: parseFloat(freelanceFormData.amount),
+        date: new Date(freelanceFormData.date),
+        client: freelanceFormData.client || undefined,
+        category: freelanceFormData.category || undefined,
+        status: freelanceFormData.status,
+        dueDate: freelanceFormData.dueDate ? new Date(freelanceFormData.dueDate) : undefined,
+        paidDate: freelanceFormData.paidDate ? new Date(freelanceFormData.paidDate) : undefined,
+        notes: freelanceFormData.notes || undefined,
+      };
+
+      if (editingFreelance) {
+        await updateFreelanceIncome(user.uid, editingFreelance.id, incomeData);
+        toast({ title: "Freelance income updated", description: "Freelance income has been updated." });
+      } else {
+        await createFreelanceIncome(user.uid, incomeData);
+        toast({ title: "Freelance income added", description: "New freelance income has been added." });
+      }
+
+      setOpenFreelanceDialog(false);
+      resetFreelanceForm();
+      loadData(user.uid);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save freelance income",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEditFreelance = (income: FreelanceIncome) => {
+    setEditingFreelance(income);
+    setFreelanceFormData({
+      title: income.title,
+      description: income.description || "",
+      amount: income.amount.toString(),
+      date: format(income.date, "yyyy-MM-dd"),
+      client: income.client || "",
+      category: income.category || "",
+      status: income.status,
+      dueDate: income.dueDate ? format(income.dueDate, "yyyy-MM-dd") : "",
+      paidDate: income.paidDate ? format(income.paidDate, "yyyy-MM-dd") : "",
+      notes: income.notes || "",
+    });
+    setOpenFreelanceDialog(true);
+  };
+
+  const handleDeleteFreelance = async (incomeId: string) => {
+    if (!user) return;
+    if (!confirm("Are you sure you want to delete this freelance income?")) return;
+
+    try {
+      await deleteFreelanceIncome(user.uid, incomeId);
+      toast({ title: "Freelance income deleted", description: "Freelance income has been deleted." });
+      loadData(user.uid);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete freelance income",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSaveMonthlyRecord = async () => {
     if (!user || !selectedJob || monthShifts.length === 0) {
       toast({
@@ -576,10 +686,10 @@ export default function WorkPage() {
         title="Work & Shifts"
         description="Manage your job, shifts, and salary calculations"
       >
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Dialog open={openJobDialog} onOpenChange={(o) => { setOpenJobDialog(o); if (!o) resetJobForm(); }}>
             <DialogTrigger asChild>
-              <Button variant="outline">
+              <Button variant="outline" className="flex-1 sm:flex-initial">
                 <Briefcase className="mr-2 h-4 w-4" />
                 {jobs.length === 0 ? "Add Job" : "Edit Job"}
               </Button>
@@ -593,7 +703,7 @@ export default function WorkPage() {
               </DialogHeader>
               <form onSubmit={handleJobSubmit}>
                 <div className="space-y-4 py-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="title">Job Title *</Label>
                       <Input
@@ -615,7 +725,7 @@ export default function WorkPage() {
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="hourlyRate">Hourly Rate (₪) *</Label>
                       <Input
@@ -675,7 +785,7 @@ export default function WorkPage() {
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="paidVacationDays">Paid Vacation Days (per year)</Label>
                       <Input
@@ -697,7 +807,7 @@ export default function WorkPage() {
                       />
                     </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="illnessDays">Illness Days (per year)</Label>
                       <Input
@@ -774,7 +884,7 @@ export default function WorkPage() {
                       required
                     />
                   </div>
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="startTime">Start Time *</Label>
                       <Input
@@ -831,6 +941,147 @@ export default function WorkPage() {
                     Cancel
                   </Button>
                   <Button type="submit">{editingShift ? "Update" : "Create"}</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
+          <Dialog open={openFreelanceDialog} onOpenChange={(o) => { setOpenFreelanceDialog(o); if (!o) resetFreelanceForm(); }}>
+            <DialogTrigger asChild>
+              <Button variant="outline" className="flex-1 sm:flex-initial">
+                <TrendingUp className="mr-2 h-4 w-4" />
+                Add Freelance
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>{editingFreelance ? "Edit Freelance Income" : "Add Freelance Income"}</DialogTitle>
+                <DialogDescription>
+                  {editingFreelance ? "Update freelance income details" : "Add a new freelance income entry"}
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleFreelanceSubmit}>
+                <div className="space-y-4 py-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="freelanceTitle">Title *</Label>
+                      <Input
+                        id="freelanceTitle"
+                        value={freelanceFormData.title}
+                        onChange={(e) => setFreelanceFormData({ ...freelanceFormData, title: e.target.value })}
+                        required
+                        placeholder="e.g., Website Design"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="freelanceAmount">Amount (₪) *</Label>
+                      <Input
+                        id="freelanceAmount"
+                        type="number"
+                        step="0.01"
+                        value={freelanceFormData.amount}
+                        onChange={(e) => setFreelanceFormData({ ...freelanceFormData, amount: e.target.value })}
+                        required
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="freelanceDescription">Description</Label>
+                    <Textarea
+                      id="freelanceDescription"
+                      value={freelanceFormData.description}
+                      onChange={(e) => setFreelanceFormData({ ...freelanceFormData, description: e.target.value })}
+                      placeholder="Project description..."
+                      rows={3}
+                    />
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="freelanceClient">Client</Label>
+                      <Input
+                        id="freelanceClient"
+                        value={freelanceFormData.client}
+                        onChange={(e) => setFreelanceFormData({ ...freelanceFormData, client: e.target.value })}
+                        placeholder="Client name"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="freelanceCategory">Category</Label>
+                      <Input
+                        id="freelanceCategory"
+                        value={freelanceFormData.category}
+                        onChange={(e) => setFreelanceFormData({ ...freelanceFormData, category: e.target.value })}
+                        placeholder="e.g., Design, Development"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="freelanceDate">Date *</Label>
+                      <Input
+                        id="freelanceDate"
+                        type="date"
+                        value={freelanceFormData.date}
+                        onChange={(e) => setFreelanceFormData({ ...freelanceFormData, date: e.target.value })}
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="freelanceStatus">Status *</Label>
+                      <Select
+                        value={freelanceFormData.status}
+                        onValueChange={(value: "pending" | "paid" | "overdue") => 
+                          setFreelanceFormData({ ...freelanceFormData, status: value })
+                        }
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="paid">Paid</SelectItem>
+                          <SelectItem value="overdue">Overdue</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="freelanceDueDate">Due Date</Label>
+                      <Input
+                        id="freelanceDueDate"
+                        type="date"
+                        value={freelanceFormData.dueDate}
+                        onChange={(e) => setFreelanceFormData({ ...freelanceFormData, dueDate: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="freelancePaidDate">Paid Date</Label>
+                      <Input
+                        id="freelancePaidDate"
+                        type="date"
+                        value={freelanceFormData.paidDate}
+                        onChange={(e) => setFreelanceFormData({ ...freelanceFormData, paidDate: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="freelanceNotes">Notes</Label>
+                    <Textarea
+                      id="freelanceNotes"
+                      value={freelanceFormData.notes}
+                      onChange={(e) => setFreelanceFormData({ ...freelanceFormData, notes: e.target.value })}
+                      placeholder="Additional notes..."
+                      rows={3}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => { setOpenFreelanceDialog(false); resetFreelanceForm(); }}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">{editingFreelance ? "Update" : "Create"}</Button>
                 </DialogFooter>
               </form>
             </DialogContent>
@@ -899,7 +1150,7 @@ export default function WorkPage() {
           {selectedJob && (
             <>
               {/* Job Info & Days Tracking */}
-              <div className="grid gap-4 md:grid-cols-3">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-sm font-medium flex items-center gap-2">
@@ -1039,7 +1290,7 @@ export default function WorkPage() {
               {/* Monthly View */}
               <Card>
                 <CardHeader>
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                     <div>
                       <CardTitle className="flex items-center gap-2">
                         <Calendar className="h-5 w-5" />
@@ -1047,11 +1298,12 @@ export default function WorkPage() {
                       </CardTitle>
                       <CardDescription>Shifts and salary calculation for this month</CardDescription>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2 w-full sm:w-auto">
                       <Button
                         variant="outline"
                         size="sm"
                         onClick={() => setSelectedMonth(subMonths(selectedMonth, 1))}
+                        className="flex-1 sm:flex-initial"
                       >
                         Previous
                       </Button>
@@ -1059,6 +1311,7 @@ export default function WorkPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => setSelectedMonth(new Date())}
+                        className="flex-1 sm:flex-initial"
                       >
                         Today
                       </Button>
@@ -1066,6 +1319,7 @@ export default function WorkPage() {
                         variant="outline"
                         size="sm"
                         onClick={() => setSelectedMonth(addMonths(selectedMonth, 1))}
+                        className="flex-1 sm:flex-initial"
                       >
                         Next
                       </Button>
@@ -1115,7 +1369,7 @@ export default function WorkPage() {
                       </div>
                     </div>
                     <div className="mt-4 pt-4 border-t border-blue-200/50 dark:border-blue-800/50">
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 text-sm">
                         <div>
                           <span className="text-muted-foreground">Regular Hours: </span>
                           <span className="font-medium">{monthlyTotals.regularHours.toFixed(1)}h</span>
@@ -1189,8 +1443,8 @@ export default function WorkPage() {
                                 {shift.notes && ` • ${shift.notes}`}
                               </div>
                             </div>
-                            <div className="flex items-center gap-4">
-                              <div className="text-right">
+                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+                              <div className="text-left sm:text-right w-full sm:w-auto">
                                 <div className="text-sm font-medium">₪{pay.totalPay.toFixed(2)}</div>
                                 <div className="text-xs text-muted-foreground">
                                   {pay.regularPay > 0 && `₪${pay.regularPay.toFixed(2)} reg`}
@@ -1200,7 +1454,7 @@ export default function WorkPage() {
                                   {pay.overtime150Pay > 0 && `₪${pay.overtime150Pay.toFixed(2)} @150%`}
                                 </div>
                               </div>
-                              <div className="flex gap-2">
+                              <div className="flex gap-2 self-end sm:self-auto">
                                 <Button
                                   variant="ghost"
                                   size="icon"
@@ -1286,6 +1540,127 @@ export default function WorkPage() {
               )}
             </>
           )}
+
+          {/* Freelance Income Section */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div>
+                  <CardTitle className="flex items-center gap-2">
+                    <TrendingUp className="h-5 w-5" />
+                    Freelance Income
+                  </CardTitle>
+                  <CardDescription>Track your freelance projects and income</CardDescription>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setOpenFreelanceDialog(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Add Income
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {freelanceIncomes.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No freelance income recorded</p>
+                  <p className="text-sm mt-2">Add your first freelance income to start tracking</p>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-4 p-4 bg-muted/50 rounded-lg">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div>
+                        <div className="text-sm text-muted-foreground">Total Income</div>
+                        <div className="text-xl sm:text-2xl font-bold text-green-600 dark:text-green-400">
+                          ₪{freelanceIncomes.reduce((sum, income) => sum + income.amount, 0).toFixed(2)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Paid</div>
+                        <div className="text-xl sm:text-2xl font-bold">
+                          ₪{freelanceIncomes.filter(i => i.status === "paid").reduce((sum, income) => sum + income.amount, 0).toFixed(2)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">Pending</div>
+                        <div className="text-xl sm:text-2xl font-bold text-orange-600 dark:text-orange-400">
+                          ₪{freelanceIncomes.filter(i => i.status === "pending" || i.status === "overdue").reduce((sum, income) => sum + income.amount, 0).toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    {freelanceIncomes.map((income) => {
+                      const statusColors = {
+                        pending: "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-300",
+                        paid: "bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300",
+                        overdue: "bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-300",
+                      };
+                      return (
+                        <div
+                          key={income.id}
+                          className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors gap-3"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
+                              <span className="font-medium">{income.title}</span>
+                              <span className={`text-xs px-2 py-1 rounded capitalize ${statusColors[income.status]}`}>
+                                {income.status}
+                              </span>
+                              {income.category && (
+                                <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded">
+                                  {income.category}
+                                </span>
+                              )}
+                            </div>
+                            <div className="text-sm text-muted-foreground">
+                              {format(income.date, "MMM d, yyyy")}
+                              {income.client && ` • ${income.client}`}
+                              {income.description && ` • ${income.description}`}
+                            </div>
+                            {income.notes && (
+                              <div className="text-xs text-muted-foreground mt-1">{income.notes}</div>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <div className="text-lg font-semibold">₪{income.amount.toFixed(2)}</div>
+                              {income.dueDate && (
+                                <div className="text-xs text-muted-foreground">
+                                  Due: {format(income.dueDate, "MMM d, yyyy")}
+                                </div>
+                              )}
+                              {income.paidDate && (
+                                <div className="text-xs text-muted-foreground">
+                                  Paid: {format(income.paidDate, "MMM d, yyyy")}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditFreelance(income)}
+                              >
+                                <Edit2 className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteFreelance(income.id)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
         </>
       )}
     </motion.div>
