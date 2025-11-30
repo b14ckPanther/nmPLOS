@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Edit2, Trash2, TrendingUp, TrendingDown, Wallet, Calendar } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { PageHeader } from "@/components/page-header";
+import { motion } from "framer-motion";
 import {
   Dialog,
   DialogContent,
@@ -294,12 +296,16 @@ export default function FinancePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Finance</h1>
-          <p className="text-muted-foreground">Manage your finances, expenses, and budget</p>
-        </div>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="space-y-6"
+    >
+      <PageHeader
+        title="Finance"
+        description="Manage your finances, expenses, and budget"
+      >
         <div className="flex gap-2">
           <Dialog open={openBill} onOpenChange={(o) => { setOpenBill(o); if (!o) resetBillForm(); }}>
             <DialogTrigger asChild>
@@ -518,7 +524,7 @@ export default function FinancePage() {
             </DialogContent>
           </Dialog>
         </div>
-      </div>
+      </PageHeader>
 
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
@@ -701,6 +707,6 @@ export default function FinancePage() {
           </CardContent>
         </Card>
       </div>
-    </div>
+    </motion.div>
   );
 }

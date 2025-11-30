@@ -12,6 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Plus, Edit2, Trash2, BookOpen, TrendingUp, Award, Target, ChevronDown, ChevronUp, ChevronsUpDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { PageHeader } from "@/components/page-header";
+import { motion } from "framer-motion";
 import {
   Dialog,
   DialogContent,
@@ -225,17 +227,21 @@ export default function CoursesPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Courses</h1>
-          <p className="text-muted-foreground">Track your courses, assignments, and progress</p>
-        </div>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="space-y-6"
+    >
+      <PageHeader
+        title="Courses"
+        description="Track your courses, assignments, and progress"
+      >
         <Button onClick={() => router.push("/courses/add")}>
           <Plus className="mr-2 h-4 w-4" />
           Add Course
         </Button>
-      </div>
+      </PageHeader>
 
       {/* Points Progress Overview */}
       {userProfile?.degreeTotalPoints && (
@@ -648,6 +654,6 @@ export default function CoursesPage() {
           )}
         </div>
       )}
-    </div>
+    </motion.div>
   );
 }

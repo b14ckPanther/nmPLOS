@@ -54,9 +54,11 @@ export function Sidebar() {
       </div>
 
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex flex-col w-64 border-r bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 h-screen sticky top-0">
-        <div className="p-6 border-b">
-          <h1 className="text-2xl font-bold">nmPLOS</h1>
+      <aside className="hidden lg:flex flex-col w-64 border-r border-white/10 dark:border-white/5 bg-white/80 dark:bg-black/80 backdrop-blur-xl supports-[backdrop-filter]:bg-white/60 dark:supports-[backdrop-filter]:bg-black/60 h-screen sticky top-0 z-30">
+        <div className="p-6 border-b border-white/10 dark:border-white/5">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 dark:from-blue-400 dark:to-purple-400 bg-clip-text text-transparent">
+            nmPLOS
+          </h1>
           <p className="text-sm text-muted-foreground">Personal Life OS</p>
         </div>
         <nav className="flex-1 p-4 space-y-2">
@@ -68,10 +70,10 @@ export function Sidebar() {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
+                  "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300 relative overflow-hidden group",
                   isActive
-                    ? "bg-primary text-primary-foreground"
-                    : "hover:bg-accent"
+                    ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg shadow-blue-500/50"
+                    : "hover:bg-white/50 dark:hover:bg-white/5 hover:shadow-md"
                 )}
               >
                 <Icon className="h-5 w-5" />
@@ -98,7 +100,7 @@ export function Sidebar() {
               animate={{ x: 0 }}
               exit={{ x: -300 }}
               transition={{ type: "spring", damping: 25, stiffness: 200 }}
-              className="fixed left-0 top-0 h-full w-64 bg-background border-r z-50 lg:hidden"
+              className="fixed left-0 top-0 h-full w-64 bg-white/90 dark:bg-black/90 backdrop-blur-xl border-r border-white/10 dark:border-white/5 z-50 lg:hidden"
             >
               <div className="p-6 border-b flex items-center justify-between">
                 <div>
@@ -123,10 +125,10 @@ export function Sidebar() {
                       href={item.href}
                       onClick={() => setIsMobileOpen(false)}
                       className={cn(
-                        "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
+                        "flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-300",
                         isActive
-                          ? "bg-primary text-primary-foreground"
-                          : "hover:bg-accent"
+                          ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white shadow-lg shadow-blue-500/50"
+                          : "hover:bg-white/50 dark:hover:bg-white/5 hover:shadow-md"
                       )}
                     >
                       <Icon className="h-5 w-5" />

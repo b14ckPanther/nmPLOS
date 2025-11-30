@@ -10,6 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Plus, Check, X, Edit2, Trash2, Calendar, Flag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { PageHeader } from "@/components/page-header";
+import { motion } from "framer-motion";
 import {
   Dialog,
   DialogContent,
@@ -225,12 +227,16 @@ export default function TasksPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Tasks</h1>
-          <p className="text-muted-foreground">Manage your tasks and assignments</p>
-        </div>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="space-y-6"
+    >
+      <PageHeader
+        title="Tasks"
+        description="Manage your tasks and assignments"
+      >
         <Dialog open={open} onOpenChange={(o) => { setOpen(o); if (!o) resetForm(); }}>
           <DialogTrigger asChild>
             <Button>
@@ -325,7 +331,7 @@ export default function TasksPage() {
             </form>
           </DialogContent>
         </Dialog>
-      </div>
+      </PageHeader>
 
       <div className="grid gap-4">
         {incompleteTasks.length > 0 && (
@@ -437,6 +443,6 @@ export default function TasksPage() {
           </Card>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }

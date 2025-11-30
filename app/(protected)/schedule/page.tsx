@@ -11,6 +11,8 @@ import "react-day-picker/dist/style.css";
 import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval } from "date-fns";
 import { Calendar as CalendarIcon, CheckSquare, BookOpen, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { PageHeader } from "@/components/page-header";
+import { motion } from "framer-motion";
 
 export default function SchedulePage() {
   const [user, setUser] = useState<User | null>(null);
@@ -87,11 +89,16 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Schedule</h1>
-        <p className="text-muted-foreground">Manage your class and work schedule</p>
-      </div>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="space-y-6"
+    >
+      <PageHeader
+        title="Schedule"
+        description="Manage your class and work schedule"
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         {/* Calendar */}
@@ -300,6 +307,6 @@ export default function SchedulePage() {
           )}
         </CardContent>
       </Card>
-    </div>
+    </motion.div>
   );
 }

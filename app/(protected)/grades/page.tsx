@@ -8,6 +8,8 @@ import type { Course, UserProfile } from "@/firebase/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Award, TrendingUp, BookOpen, Calculator } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { PageHeader } from "@/components/page-header";
+import { motion } from "framer-motion";
 
 export default function GradesPage() {
   const [user, setUser] = useState<User | null>(null);
@@ -124,11 +126,16 @@ export default function GradesPage() {
   const coursesWithoutGrades = courses.filter((c) => c.completed && (c.grade === undefined || c.grade === null));
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold">Grades</h1>
-        <p className="text-muted-foreground">View your academic performance and GPA</p>
-      </div>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="space-y-6"
+    >
+      <PageHeader
+        title="Grades"
+        description="View your academic performance and GPA"
+      />
 
       {/* GPA Overview */}
       <div className="grid gap-4 md:grid-cols-3">
@@ -305,7 +312,7 @@ export default function GradesPage() {
           </CardContent>
         </Card>
       )}
-    </div>
+    </motion.div>
   );
 }
 
