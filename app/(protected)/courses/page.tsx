@@ -239,6 +239,7 @@ export default function CoursesPage() {
       >
         <Button onClick={() => router.push("/courses/add")}>
           <Plus className="mr-2 h-4 w-4" />
+          Add Course
         </Button>
       </PageHeader>
 
