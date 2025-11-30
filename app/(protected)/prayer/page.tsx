@@ -4,10 +4,12 @@ import * as React from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Moon, Clock, BookOpen, Loader2, Play, Pause, Volume2, VolumeX } from "lucide-react";
+import { Moon, Clock, BookOpen, Loader2, Play, Pause, Volume2, VolumeX, SkipBack, SkipForward, Check } from "lucide-react";
+import { useQuranAudio } from "@/components/quran-audio-provider";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/firebase/client";
 import { format } from "date-fns";
+import { getPrayerRecord, updatePrayerStatus, type PrayerRecord } from "@/lib/firestore-helpers";
 
 interface PrayerTimes {
   fajr: string;
@@ -47,12 +49,29 @@ export default function PrayerPage() {
   const [dua, setDua] = React.useState<Dua | null>(null);
   const [loadingDua, setLoadingDua] = React.useState(false);
   const [surahs, setSurahs] = React.useState<QuranSurah[]>([]);
-  const [selectedSurah, setSelectedSurah] = React.useState<number | null>(null);
-  const [playingAyah, setPlayingAyah] = React.useState<number | null>(null);
-  const [isPlaying, setIsPlaying] = React.useState(false);
-  const [audio, setAudio] = React.useState<HTMLAudioElement | null>(null);
-  const [volume, setVolume] = React.useState(1);
-  const [isMuted, setIsMuted] = React.useState(false);
+  const [prayerRecord, setPrayerRecord] = React.useState<PrayerRecord | null>(null);
+  const [updatingPrayer, setUpdatingPrayer] = React.useState<string | null>(null);
+  
+  // Use global audio context
+  const {
+    isPlaying,
+    currentSurah,
+    currentAyah,
+    totalAyahs,
+    volume,
+    isMuted,
+    currentTime,
+    duration,
+    playAyah,
+    pauseAudio,
+    resumeAudio,
+    stopAudio,
+    toggleMute,
+    setVolume,
+    seekTo,
+    playNextAyah,
+    playPreviousAyah,
+  } = useQuranAudio();
 
   const loadPrayerTimes = React.useCallback(async () => {
     try {
@@ -102,11 +121,30 @@ export default function PrayerPage() {
     }
   }, []);
 
+  // Load prayer record for today
+  const loadPrayerRecord = React.useCallback(async () => {
+    if (!user) return;
+    try {
+      const today = format(new Date(), "yyyy-MM-dd");
+      const record = await getPrayerRecord(user.uid, today);
+      setPrayerRecord(record);
+    } catch (error) {
+      console.error("Failed to load prayer record:", error);
+    }
+  }, [user]);
+
   // Load prayer times and surahs
   React.useEffect(() => {
     loadPrayerTimes();
     loadSurahs();
   }, [loadPrayerTimes, loadSurahs]);
+
+  // Load prayer record when user is available
+  React.useEffect(() => {
+    if (user) {
+      loadPrayerRecord();
+    }
+  }, [user, loadPrayerRecord]);
 
   const generateDua = async (category?: string) => {
     try {
@@ -134,89 +172,89 @@ export default function PrayerPage() {
     }
   };
 
-  const playAyah = async (surahNumber: number, ayahNumber: number) => {
+  const handlePlayAyah = async (surahNumber: number, ayahNumber: number) => {
     try {
-      // Stop current audio if playing
-      if (audio) {
-        audio.pause();
-        audio.currentTime = 0;
+      const surah = surahs.find((s) => s.number === surahNumber);
+      if (!surah) {
+        throw new Error("Surah not found");
       }
-
-      // Use alquran.cloud API which provides reliable audio
-      // Format: https://api.alquran.cloud/v1/ayah/${surahNumber}:${ayahNumber}/ar.alafasy
-      const audioUrl = `https://api.alquran.cloud/v1/ayah/${surahNumber}:${ayahNumber}/ar.alafasy`;
-      
-      // First fetch the audio URL from the API
-      const audioResponse = await fetch(audioUrl);
-      const audioData = await audioResponse.json();
-      
-      if (audioData.code !== 200 || !audioData.data?.audio) {
-        throw new Error("Audio not found for this ayah");
-      }
-      
-      const actualAudioUrl = audioData.data.audio;
-
-      const newAudio = new Audio(actualAudioUrl);
-      
-      // Set up event handlers before playing
-      newAudio.onerror = (e) => {
-        console.error("Audio error:", e);
-        setIsPlaying(false);
-        setPlayingAyah(null);
-        throw new Error("Failed to load audio file");
-      };
-      
-      newAudio.onended = () => {
-        setIsPlaying(false);
-        setPlayingAyah(null);
-      };
-
-      newAudio.onplay = () => {
-        setIsPlaying(true);
-        setPlayingAyah(ayahNumber);
-        setSelectedSurah(surahNumber);
-      };
-
-      newAudio.volume = isMuted ? 0 : volume;
-      
-      // Preload the audio
-      newAudio.preload = "auto";
-      
-      // Try to play
-      await newAudio.play();
-      
-      // If we got here, playback started successfully
-      setAudio(newAudio);
+      await playAyah(surahNumber, ayahNumber, surah.numberOfAyahs);
     } catch (error: any) {
-      console.error("Audio playback error:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to play audio. Please try again.",
         variant: "destructive",
       });
-      setIsPlaying(false);
-      setPlayingAyah(null);
     }
   };
 
-  const stopAudio = () => {
-    if (audio) {
-      audio.pause();
-      audio.currentTime = 0;
-      setIsPlaying(false);
-      setPlayingAyah(null);
-    }
+  const formatTime = (seconds: number): string => {
+    if (isNaN(seconds) || !isFinite(seconds)) return "0:00";
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.floor(seconds % 60);
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
-  const toggleMute = () => {
-    if (audio) {
-      audio.volume = isMuted ? volume : 0;
-    }
-    setIsMuted(!isMuted);
-  };
-
-  const formatTime = (time: string) => {
+  const formatPrayerTime = (time: string) => {
     return time.split(" ")[0]; // Remove timezone info if present
+  };
+
+  const togglePrayerStatus = async (prayerName: "fajr" | "dhuhr" | "asr" | "maghrib" | "isha") => {
+    if (!user) {
+      toast({
+        title: "Error",
+        description: "Please log in to track prayers",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUpdatingPrayer(prayerName);
+    try {
+      const today = format(new Date(), "yyyy-MM-dd");
+      const currentStatus = prayerRecord?.[prayerName] || false;
+      const newStatus = !currentStatus;
+
+      await updatePrayerStatus(user.uid, today, prayerName, newStatus);
+      
+      // Update local state
+      setPrayerRecord((prev) => {
+        if (!prev) {
+          return {
+            date: today,
+            fajr: prayerName === "fajr" ? newStatus : false,
+            dhuhr: prayerName === "dhuhr" ? newStatus : false,
+            asr: prayerName === "asr" ? newStatus : false,
+            maghrib: prayerName === "maghrib" ? newStatus : false,
+            isha: prayerName === "isha" ? newStatus : false,
+            updatedAt: new Date(),
+          };
+        }
+        return {
+          ...prev,
+          [prayerName]: newStatus,
+          updatedAt: new Date(),
+        };
+      });
+
+      toast({
+        title: newStatus ? "Prayer Marked" : "Prayer Unmarked",
+        description: `${prayerName.charAt(0).toUpperCase() + prayerName.slice(1)} ${newStatus ? "marked as completed" : "unmarked"}`,
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to update prayer status",
+        variant: "destructive",
+      });
+    } finally {
+      setUpdatingPrayer(null);
+    }
+  };
+
+  const getCompletedPrayersCount = () => {
+    if (!prayerRecord) return 0;
+    return [prayerRecord.fajr, prayerRecord.dhuhr, prayerRecord.asr, prayerRecord.maghrib, prayerRecord.isha].filter(Boolean).length;
   };
 
   const getNextPrayer = () => {
@@ -279,24 +317,70 @@ export default function PrayerPage() {
               <Loader2 className="h-6 w-6 animate-spin" />
             </div>
           ) : prayerTimes ? (
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-              {[
-                { name: "Fajr", time: prayerTimes.fajr, icon: "🌙" },
-                { name: "Dhuhr", time: prayerTimes.dhuhr, icon: "☀️" },
-                { name: "Asr", time: prayerTimes.asr, icon: "🌤️" },
-                { name: "Maghrib", time: prayerTimes.maghrib, icon: "🌅" },
-                { name: "Isha", time: prayerTimes.isha, icon: "🌃" },
-              ].map((prayer) => (
-                <div
-                  key={prayer.name}
-                  className="p-4 rounded-lg border bg-card text-card-foreground text-center"
-                >
-                  <div className="text-2xl mb-2">{prayer.icon}</div>
-                  <div className="font-semibold">{prayer.name}</div>
-                  <div className="text-2xl font-bold mt-2">{formatTime(prayer.time)}</div>
+            <>
+              {/* Prayer Progress Summary */}
+              {prayerRecord && (
+                <div className="mb-4 p-3 bg-gradient-to-r from-green-500/10 to-emerald-500/10 rounded-lg border border-green-500/20">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">Today&apos;s Progress</span>
+                    <span className="text-sm font-bold">
+                      {getCompletedPrayersCount()} / 5 prayers completed
+                    </span>
+                  </div>
+                  <div className="mt-2 w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div
+                      className="bg-gradient-to-r from-green-500 to-emerald-500 h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${(getCompletedPrayersCount() / 5) * 100}%` }}
+                    />
+                  </div>
                 </div>
-              ))}
-            </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                {[
+                  { name: "Fajr", time: prayerTimes.fajr, icon: "🌙", key: "fajr" as const },
+                  { name: "Dhuhr", time: prayerTimes.dhuhr, icon: "☀️", key: "dhuhr" as const },
+                  { name: "Asr", time: prayerTimes.asr, icon: "🌤️", key: "asr" as const },
+                  { name: "Maghrib", time: prayerTimes.maghrib, icon: "🌅", key: "maghrib" as const },
+                  { name: "Isha", time: prayerTimes.isha, icon: "🌃", key: "isha" as const },
+                ].map((prayer) => {
+                  const isCompleted = prayerRecord?.[prayer.key] || false;
+                  const isUpdating = updatingPrayer === prayer.key;
+                  
+                  return (
+                    <button
+                      key={prayer.name}
+                      onClick={() => togglePrayerStatus(prayer.key)}
+                      disabled={isUpdating || !user}
+                      className={`p-4 rounded-lg border text-center transition-all duration-200 relative ${
+                        isCompleted
+                          ? "bg-gradient-to-br from-green-500/20 to-emerald-500/20 border-green-500/50 dark:from-green-500/10 dark:to-emerald-500/10 dark:border-green-500/30"
+                          : "bg-card text-card-foreground hover:bg-accent hover:border-accent-foreground/20"
+                      } ${isUpdating ? "opacity-50 cursor-not-allowed" : "cursor-pointer"}`}
+                    >
+                      {isUpdating && (
+                        <div className="absolute top-2 right-2">
+                          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        </div>
+                      )}
+                      {isCompleted && (
+                        <div className="absolute top-2 right-2">
+                          <Check className="h-5 w-5 text-green-600 dark:text-green-400" />
+                        </div>
+                      )}
+                      <div className="text-2xl mb-2">{prayer.icon}</div>
+                      <div className="font-semibold">{prayer.name}</div>
+                      <div className="text-2xl font-bold mt-2">{formatPrayerTime(prayer.time)}</div>
+                      {isCompleted && (
+                        <div className="text-xs text-green-600 dark:text-green-400 mt-1 font-medium">
+                          Completed
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
               Failed to load prayer times
@@ -372,29 +456,94 @@ export default function PrayerPage() {
         <CardContent>
           <div className="space-y-4">
             {/* Audio Controls */}
-            {isPlaying && (
-              <div className="flex items-center gap-4 p-4 bg-card border rounded-lg">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={stopAudio}
-                >
-                  {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={toggleMute}
-                >
-                  {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                </Button>
-                <div className="flex-1">
-                  <div className="text-sm font-medium">
-                    {selectedSurah && surahs.find((s) => s.number === selectedSurah)?.englishName}
+            {(isPlaying || currentAyah) && (
+              <div className="space-y-4 p-4 bg-card border rounded-lg">
+                {/* Now Playing Info */}
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <div className="text-sm font-medium">
+                      {currentSurah && surahs.find((s) => s.number === currentSurah)?.englishName}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      Ayah {currentAyah} {totalAyahs > 0 && `of ${totalAyahs}`}
+                    </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    Ayah {playingAyah}
+                </div>
+
+                {/* Progress Bar */}
+                <div className="space-y-2">
+                  <input
+                    type="range"
+                    min="0"
+                    max={duration || 0}
+                    value={currentTime || 0}
+                    onChange={(e) => seekTo(Number(e.target.value))}
+                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-blue-600"
+                    style={{
+                      background: `linear-gradient(to right, rgb(37, 99, 235) 0%, rgb(37, 99, 235) ${((currentTime || 0) / (duration || 1)) * 100}%, rgb(229, 231, 235) ${((currentTime || 0) / (duration || 1)) * 100}%, rgb(229, 231, 235) 100%)`
+                    }}
+                  />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{formatTime(currentTime)}</span>
+                    <span>{formatTime(duration)}</span>
                   </div>
+                </div>
+
+                {/* Control Buttons */}
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={playPreviousAyah}
+                    disabled={!currentSurah || !currentAyah || currentAyah <= 1}
+                    title="Previous Ayah"
+                  >
+                    <SkipBack className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={isPlaying ? pauseAudio : resumeAudio}
+                    title={isPlaying ? "Pause" : "Play"}
+                  >
+                    {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={playNextAyah}
+                    disabled={!currentSurah || !currentAyah || !totalAyahs || currentAyah >= totalAyahs}
+                    title="Next Ayah"
+                  >
+                    <SkipForward className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={stopAudio}
+                    title="Stop"
+                  >
+                    <Pause className="h-4 w-4" />
+                  </Button>
+                  <div className="flex-1" />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={toggleMute}
+                    title={isMuted ? "Unmute" : "Mute"}
+                  >
+                    {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                  </Button>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.01"
+                    value={volume}
+                    onChange={(e) => setVolume(Number(e.target.value))}
+                    className="w-20 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-blue-600"
+                    title="Volume"
+                  />
                 </div>
               </div>
             )}
@@ -406,7 +555,7 @@ export default function PrayerPage() {
                   key={surah.number}
                   variant="outline"
                   className="justify-start h-auto py-3"
-                  onClick={() => playAyah(surah.number, 1)}
+                  onClick={() => handlePlayAyah(surah.number, 1)}
                 >
                   <div className="text-left">
                     <div className="font-semibold">{surah.englishName}</div>

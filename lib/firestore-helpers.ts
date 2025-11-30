@@ -402,3 +402,63 @@ export const deleteProject = async (uid: string, projectId: string): Promise<voi
   await deleteDoc(docRef);
 };
 
+// Prayer Records
+export interface PrayerRecord {
+  date: string; // Format: YYYY-MM-DD
+  fajr: boolean;
+  dhuhr: boolean;
+  asr: boolean;
+  maghrib: boolean;
+  isha: boolean;
+  updatedAt: Date;
+}
+
+export const getPrayerRecord = async (uid: string, date: string): Promise<PrayerRecord | null> => {
+  const firestore = ensureDb();
+  const docRef = doc(firestore, `users/${uid}/prayer`, date);
+  const docSnap = await getDoc(docRef);
+  if (docSnap.exists()) {
+    const data = docSnap.data();
+    return {
+      date: data.date,
+      fajr: data.fajr || false,
+      dhuhr: data.dhuhr || false,
+      asr: data.asr || false,
+      maghrib: data.maghrib || false,
+      isha: data.isha || false,
+      updatedAt: toDate(data.updatedAt) || new Date(),
+    } as PrayerRecord;
+  }
+  return null;
+};
+
+export const updatePrayerStatus = async (
+  uid: string,
+  date: string,
+  prayerName: "fajr" | "dhuhr" | "asr" | "maghrib" | "isha",
+  completed: boolean
+): Promise<void> => {
+  const firestore = ensureDb();
+  const docRef = doc(firestore, `users/${uid}/prayer`, date);
+  const docSnap = await getDoc(docRef);
+  
+  if (docSnap.exists()) {
+    // Update existing record
+    await updateDoc(docRef, {
+      [prayerName]: completed,
+      updatedAt: Timestamp.now(),
+    });
+  } else {
+    // Create new record
+    await setDoc(docRef, {
+      date,
+      fajr: prayerName === "fajr" ? completed : false,
+      dhuhr: prayerName === "dhuhr" ? completed : false,
+      asr: prayerName === "asr" ? completed : false,
+      maghrib: prayerName === "maghrib" ? completed : false,
+      isha: prayerName === "isha" ? completed : false,
+      updatedAt: Timestamp.now(),
+    });
+  }
+};
+

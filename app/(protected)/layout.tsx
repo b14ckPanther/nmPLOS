@@ -4,6 +4,7 @@ import { SidebarV2 as Sidebar } from "@/components/sidebar-v2";
 import { CommandPalette } from "@/components/command-palette";
 import { AuthGuard } from "@/components/auth-guard";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { QuranFloatingPlayer } from "@/components/quran-floating-player";
 import { motion } from "framer-motion";
 
 export default function ProtectedLayout({
@@ -39,6 +40,7 @@ export default function ProtectedLayout({
         </main>
       </div>
       <CommandPalette />
+      <QuranFloatingPlayer />
     </AuthGuard>
   );
 }
