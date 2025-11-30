@@ -18,6 +18,7 @@ import {
   Menu,
   X,
   Award,
+  Briefcase,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { motion, AnimatePresence } from "framer-motion";
@@ -30,6 +31,7 @@ const navItems = [
   { href: "/grades", label: "Grades", icon: Award },
   { href: "/projects", label: "Projects", icon: FolderKanban },
   { href: "/exams", label: "Exams", icon: GraduationCap },
+  { href: "/work", label: "Work & Shifts", icon: Briefcase },
   { href: "/finance", label: "Finance", icon: Wallet },
   { href: "/gmail", label: "Gmail", icon: Mail },
   { href: "/assistant", label: "AI Assistant", icon: Bot },

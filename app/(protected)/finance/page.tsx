@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/firebase/client";
 import { getTransactions, createTransaction, updateTransaction, deleteTransaction, getBills, createBill, updateBill, deleteBill } from "@/lib/firestore-helpers";
-import type { Transaction, Bill } from "@/firebase/types";
+import { getWorkRecords } from "@/lib/work-helpers";
+import type { Transaction, Bill, WorkRecord } from "@/firebase/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -30,6 +31,7 @@ export default function FinancePage() {
   const [user, setUser] = useState<User | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [bills, setBills] = useState<Bill[]>([]);
+  const [workRecords, setWorkRecords] = useState<WorkRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [openBill, setOpenBill] = useState(false);
@@ -58,12 +60,14 @@ export default function FinancePage() {
   const loadData = useCallback(async (userId: string) => {
     try {
       setLoading(true);
-      const [transactionsData, billsData] = await Promise.all([
+      const [transactionsData, billsData, recordsData] = await Promise.all([
         getTransactions(userId),
         getBills(userId),
+        getWorkRecords(userId),
       ]);
       setTransactions(transactionsData);
       setBills(billsData);
+      setWorkRecords(recordsData);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -94,9 +98,16 @@ export default function FinancePage() {
     return transactionDate >= monthStart && transactionDate <= monthEnd;
   });
 
+  // Get current month work income
+  const currentMonth = new Date().getMonth() + 1;
+  const currentYear = new Date().getFullYear();
+  const currentMonthWorkIncome = workRecords
+    .filter(record => record.month === currentMonth && record.year === currentYear)
+    .reduce((sum, record) => sum + record.totalPay, 0);
+
   const monthlyIncome = monthlyTransactions
     .filter((t) => t.type === "income")
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + t.amount, 0) + currentMonthWorkIncome;
 
   const monthlyExpenses = monthlyTransactions
     .filter((t) => t.type === "expense")
@@ -104,6 +115,26 @@ export default function FinancePage() {
 
   const balance = monthlyIncome - monthlyExpenses;
   const unpaidBills = bills.filter((b) => !b.paid && new Date(b.dueDate) <= new Date());
+
+  // Calculate yearly totals
+  const yearlyWorkIncome = workRecords
+    .filter(record => record.year === currentYear)
+    .reduce((sum, record) => sum + record.totalPay, 0);
+
+  const yearlyTransactions = transactions.filter((t) => {
+    const transactionDate = new Date(t.date);
+    return transactionDate.getFullYear() === currentYear;
+  });
+
+  const yearlyIncome = yearlyTransactions
+    .filter((t) => t.type === "income")
+    .reduce((sum, t) => sum + t.amount, 0) + yearlyWorkIncome;
+
+  const yearlyExpenses = yearlyTransactions
+    .filter((t) => t.type === "expense")
+    .reduce((sum, t) => sum + t.amount, 0);
+
+  const yearlyBalance = yearlyIncome - yearlyExpenses;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -536,6 +567,7 @@ export default function FinancePage() {
             <div className="text-2xl font-bold">₪{monthlyIncome.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
               {monthlyTransactions.filter((t) => t.type === "income").length} transactions
+              {currentMonthWorkIncome > 0 && ` + ₪${currentMonthWorkIncome.toFixed(2)} work`}
             </p>
           </CardContent>
         </Card>
@@ -563,6 +595,53 @@ export default function FinancePage() {
               ₪{balance.toFixed(2)}
             </div>
             <p className="text-xs text-muted-foreground">Current balance</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Yearly Summary */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Yearly Income ({new Date().getFullYear()})</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-green-600">₪{yearlyIncome.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">
+              {yearlyWorkIncome > 0 && `₪${yearlyWorkIncome.toFixed(2)} from work`}
+              {yearlyWorkIncome > 0 && yearlyTransactions.filter((t) => t.type === "income").length > 0 && " + "}
+              {yearlyTransactions.filter((t) => t.type === "income").length > 0 && 
+                `${yearlyTransactions.filter((t) => t.type === "income").length} other transactions`}
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Yearly Expenses ({new Date().getFullYear()})</CardTitle>
+            <TrendingDown className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-red-600">₪{yearlyExpenses.toFixed(2)}</div>
+            <p className="text-xs text-muted-foreground">
+              {yearlyTransactions.filter((t) => t.type === "expense").length} transactions
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Yearly Balance ({new Date().getFullYear()})</CardTitle>
+            <Wallet className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className={`text-2xl font-bold ${yearlyBalance >= 0 ? "text-green-600" : "text-red-600"}`}>
+              ₪{yearlyBalance.toFixed(2)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {yearlyBalance >= 0 ? "Remaining" : "Over budget"}
+            </p>
           </CardContent>
         </Card>
       </div>

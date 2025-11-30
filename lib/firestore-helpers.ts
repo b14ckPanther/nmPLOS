@@ -23,7 +23,10 @@ import type {
   Exam,
   UserProfile,
   UserSettings,
-  FinancialPreferences
+  FinancialPreferences,
+  Job,
+  Shift,
+  WorkRecord
 } from "@/firebase/types";
 
 // Helper to ensure db is available

@@ -1,0 +1,179 @@
+import { 
+  collection, 
+  doc, 
+  getDoc, 
+  getDocs, 
+  setDoc, 
+  updateDoc, 
+  deleteDoc,
+  query,
+  where,
+  orderBy,
+  Timestamp,
+  QueryConstraint
+} from "firebase/firestore";
+import { db } from "@/firebase/client";
+import type { Job, Shift, WorkRecord } from "@/firebase/types";
+
+// Helper to ensure db is available
+const ensureDb = () => {
+  if (!db) {
+    throw new Error("Firestore database is not initialized. Please check your Firebase configuration.");
+  }
+  return db;
+};
+
+// Helper to convert Firestore Timestamp to Date
+const toDate = (timestamp: any): Date | null => {
+  if (!timestamp) return null;
+  if (timestamp instanceof Date) return timestamp;
+  if (timestamp.toDate) return timestamp.toDate();
+  return new Date(timestamp);
+};
+
+// Helper to convert Date to Firestore Timestamp
+const toTimestamp = (date: Date): Timestamp => {
+  if (date instanceof Timestamp) return date;
+  return Timestamp.fromDate(date instanceof Date ? date : new Date(date));
+};
+
+// Job helpers
+export const getJobs = async (uid: string): Promise<Job[]> => {
+  const firestore = ensureDb();
+  const jobsRef = collection(firestore, `users/${uid}/jobs`);
+  const q = query(jobsRef, orderBy("createdAt", "desc"));
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    createdAt: toDate(doc.data().createdAt) || new Date(),
+    updatedAt: toDate(doc.data().updatedAt) || new Date(),
+  })) as Job[];
+};
+
+export const createJob = async (uid: string, job: Omit<Job, "id" | "createdAt" | "updatedAt">): Promise<string> => {
+  const firestore = ensureDb();
+  const jobsRef = collection(firestore, `users/${uid}/jobs`);
+  const docRef = doc(jobsRef);
+  await setDoc(docRef, {
+    ...job,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+  return docRef.id;
+};
+
+export const updateJob = async (uid: string, jobId: string, updates: Partial<Job>): Promise<void> => {
+  const firestore = ensureDb();
+  const docRef = doc(firestore, `users/${uid}/jobs`, jobId);
+  const updateData: any = { ...updates };
+  updateData.updatedAt = Timestamp.now();
+  await updateDoc(docRef, updateData);
+};
+
+export const deleteJob = async (uid: string, jobId: string): Promise<void> => {
+  const firestore = ensureDb();
+  const docRef = doc(firestore, `users/${uid}/jobs`, jobId);
+  await deleteDoc(docRef);
+};
+
+// Shift helpers
+export const getShifts = async (uid: string, jobId?: string): Promise<Shift[]> => {
+  const firestore = ensureDb();
+  const shiftsRef = collection(firestore, `users/${uid}/shifts`);
+  const constraints: QueryConstraint[] = [orderBy("date", "desc")];
+  if (jobId) {
+    constraints.unshift(where("jobId", "==", jobId));
+  }
+  const q = query(shiftsRef, ...constraints);
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    date: toDate(doc.data().date) || new Date(),
+    createdAt: toDate(doc.data().createdAt) || new Date(),
+    updatedAt: toDate(doc.data().updatedAt) || new Date(),
+  })) as Shift[];
+};
+
+export const createShift = async (uid: string, shift: Omit<Shift, "id" | "createdAt" | "updatedAt">): Promise<string> => {
+  const firestore = ensureDb();
+  const shiftsRef = collection(firestore, `users/${uid}/shifts`);
+  const docRef = doc(shiftsRef);
+  await setDoc(docRef, {
+    ...shift,
+    date: toTimestamp(shift.date),
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+  return docRef.id;
+};
+
+export const updateShift = async (uid: string, shiftId: string, updates: Partial<Shift>): Promise<void> => {
+  const firestore = ensureDb();
+  const docRef = doc(firestore, `users/${uid}/shifts`, shiftId);
+  const updateData: any = { ...updates };
+  if (updates.date) {
+    updateData.date = toTimestamp(updates.date);
+  }
+  updateData.updatedAt = Timestamp.now();
+  await updateDoc(docRef, updateData);
+};
+
+export const deleteShift = async (uid: string, shiftId: string): Promise<void> => {
+  const firestore = ensureDb();
+  const docRef = doc(firestore, `users/${uid}/shifts`, shiftId);
+  await deleteDoc(docRef);
+};
+
+// WorkRecord helpers
+export const getWorkRecords = async (uid: string, jobId?: string, year?: number, month?: number): Promise<WorkRecord[]> => {
+  const firestore = ensureDb();
+  const recordsRef = collection(firestore, `users/${uid}/workRecords`);
+  const constraints: QueryConstraint[] = [orderBy("year", "desc"), orderBy("month", "desc")];
+  if (jobId) {
+    constraints.unshift(where("jobId", "==", jobId));
+  }
+  if (year !== undefined) {
+    constraints.unshift(where("year", "==", year));
+  }
+  if (month !== undefined) {
+    constraints.unshift(where("month", "==", month));
+  }
+  const q = query(recordsRef, ...constraints);
+  const snapshot = await getDocs(q);
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    createdAt: toDate(doc.data().createdAt) || new Date(),
+    updatedAt: toDate(doc.data().updatedAt) || new Date(),
+  })) as WorkRecord[];
+};
+
+export const createWorkRecord = async (uid: string, record: Omit<WorkRecord, "id" | "createdAt" | "updatedAt">): Promise<string> => {
+  const firestore = ensureDb();
+  const recordsRef = collection(firestore, `users/${uid}/workRecords`);
+  const docRef = doc(recordsRef);
+  await setDoc(docRef, {
+    ...record,
+    shifts: record.shifts || [],
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+  return docRef.id;
+};
+
+export const updateWorkRecord = async (uid: string, recordId: string, updates: Partial<WorkRecord>): Promise<void> => {
+  const firestore = ensureDb();
+  const docRef = doc(firestore, `users/${uid}/workRecords`, recordId);
+  const updateData: any = { ...updates };
+  updateData.updatedAt = Timestamp.now();
+  await updateDoc(docRef, updateData);
+};
+
+export const deleteWorkRecord = async (uid: string, recordId: string): Promise<void> => {
+  const firestore = ensureDb();
+  const docRef = doc(firestore, `users/${uid}/workRecords`, recordId);
+  await deleteDoc(docRef);
+};
+

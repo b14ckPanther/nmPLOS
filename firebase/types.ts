@@ -136,3 +136,60 @@ export interface Habit {
   createdAt: Date;
 }
 
+export interface Job {
+  id: string;
+  title: string;
+  company: string;
+  hourlyRate: number; // Hourly payment in NIS
+  overtimeRate: number; // Multiplier for overtime (e.g., 1.25 for 125%)
+  overtimeThreshold: number; // Hours after which overtime applies
+  transportPayment: number; // Monthly transport payment in NIS
+  transportPaymentDate: number; // Day of month when transport is paid (e.g., 1-31)
+  paidVacationDays: number; // Total paid vacation days per year
+  usedVacationDays: number; // Used vacation days
+  illnessDays: number; // Total illness/sick days per year
+  usedIllnessDays: number; // Used illness days
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Shift {
+  id: string;
+  jobId: string;
+  date: Date;
+  startTime: string; // Format: "HH:MM"
+  endTime: string; // Format: "HH:MM"
+  hours: number; // Calculated hours worked
+  shiftType: "morning" | "afternoon" | "night"; // Type of shift
+  isOvertime: boolean; // Whether this shift includes overtime hours
+  regularHours: number; // Regular hours at 100%
+  overtime125Hours: number; // Overtime hours at 125%
+  overtime150Hours: number; // Overtime hours at 150%
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface WorkRecord {
+  id: string;
+  jobId: string;
+  month: number; // 1-12
+  year: number;
+  totalHours: number;
+  regularHours: number;
+  overtimeHours: number;
+  overtime125Hours: number;
+  overtime150Hours: number;
+  regularPay: number;
+  overtimePay: number;
+  overtime125Pay: number;
+  overtime150Pay: number;
+  transportPayment: number;
+  vacationDaysUsed: number;
+  illnessDaysUsed: number;
+  totalPay: number;
+  shifts: string[]; // Shift IDs for this month
+  createdAt: Date;
+  updatedAt: Date;
+}
+
