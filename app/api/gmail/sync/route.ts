@@ -95,18 +95,36 @@ export async function POST(request: NextRequest) {
 
     const gmail = google.gmail({ version: "v1", auth: oauth2Client });
 
-    // Fetch recent emails (last 50)
+    // Calculate date 30 days ago for filtering
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    // Gmail search query: emails from last 30 days in inbox
+    // Format: after:YYYY/MM/DD (Gmail uses YYYY/MM/DD format)
+    const year = thirtyDaysAgo.getFullYear();
+    const month = String(thirtyDaysAgo.getMonth() + 1).padStart(2, '0');
+    const day = String(thirtyDaysAgo.getDate()).padStart(2, '0');
+    const dateQuery = `after:${year}/${month}/${day}`;
+    const searchQuery = `in:inbox ${dateQuery}`;
+
+    console.log("Gmail sync query:", searchQuery);
+
+    // Fetch emails from last 30 days (limit to 100 for safety)
     const response = await gmail.users.messages.list({
       userId: "me",
-      maxResults: 50,
-      q: "is:unread OR in:inbox", // Get unread or inbox emails
+      maxResults: 100,
+      q: searchQuery,
     });
 
     const messages = response.data.messages || [];
+    console.log(`Found ${messages.length} messages from last 30 days`);
+    
     let syncedCount = 0;
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
 
     // Process each message
-    for (const message of messages.slice(0, 50)) {
+    for (const message of messages) {
       try {
         // Get full message details
         const messageDetail = await gmail.users.messages.get({
@@ -127,6 +145,12 @@ export async function POST(request: NextRequest) {
         const from = getHeader("From");
         const dateHeader = getHeader("Date");
         const date = dateHeader ? new Date(dateHeader) : new Date();
+
+        // Double-check: only process emails from last 30 days
+        if (date < oneMonthAgo) {
+          console.log(`Skipping email older than 30 days: ${subject} (${date.toISOString()})`);
+          continue;
+        }
 
         // Extract body text
         let bodyText = "";
@@ -176,10 +200,21 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: any) {
     console.error("Gmail sync error:", error);
+    console.error("Error stack:", error.stack);
+    console.error("Error details:", {
+      message: error.message,
+      code: error.code,
+      response: error.response?.data,
+    });
+    
     return NextResponse.json(
       {
         error: "Failed to sync emails",
-        details: process.env.NODE_ENV === "development" ? error.message : undefined,
+        details: process.env.NODE_ENV === "development" ? {
+          message: error.message,
+          code: error.code,
+          stack: error.stack,
+        } : undefined,
       },
       { status: 500 }
     );
