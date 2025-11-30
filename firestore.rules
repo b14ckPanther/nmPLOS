@@ -123,6 +123,11 @@ service cloud.firestore {
       match /apartmentPayments/{paymentId} {
         allow read, write: if isOwner(userId);
       }
+      
+      // Phone Payments - users can only access their own phone payments
+      match /phonePayments/{paymentId} {
+        allow read, write: if isOwner(userId);
+      }
     }
     
     // Deny all other access

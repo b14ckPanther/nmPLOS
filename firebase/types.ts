@@ -118,6 +118,18 @@ export interface ApartmentPayment {
   updatedAt: Date;
 }
 
+export interface PhonePayment {
+  id: string;
+  phoneName: string;
+  totalAmount: number; // Total phone cost in NIS
+  monthlyPayment: number; // Monthly payment amount in NIS
+  startDate: Date;
+  endDate: Date;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Bill {
   id: string;
   name: string;

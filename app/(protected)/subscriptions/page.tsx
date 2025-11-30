@@ -8,9 +8,9 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/firebase/client";
-import { getSubscriptions, createSubscription, updateSubscription, deleteSubscription, getApartmentPayments, createApartmentPayment, updateApartmentPayment, deleteApartmentPayment } from "@/lib/firestore-helpers";
-import type { Subscription, ApartmentPayment } from "@/firebase/types";
-import { Plus, Edit2, Trash2, Loader2, CreditCard, Home } from "lucide-react";
+import { getSubscriptions, createSubscription, updateSubscription, deleteSubscription, getApartmentPayments, createApartmentPayment, updateApartmentPayment, deleteApartmentPayment, getPhonePayments, createPhonePayment, updatePhonePayment, deletePhonePayment } from "@/lib/firestore-helpers";
+import type { Subscription, ApartmentPayment, PhonePayment } from "@/firebase/types";
+import { Plus, Edit2, Trash2, Loader2, CreditCard, Home, Smartphone } from "lucide-react";
 import { format } from "date-fns";
 import {
   Dialog,
@@ -26,11 +26,14 @@ export default function SubscriptionsPage() {
   const [user, setUser] = React.useState<User | null>(null);
   const [subscriptions, setSubscriptions] = React.useState<Subscription[]>([]);
   const [apartmentPayments, setApartmentPayments] = React.useState<ApartmentPayment[]>([]);
+  const [phonePayments, setPhonePayments] = React.useState<PhonePayment[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [showDialog, setShowDialog] = React.useState(false);
   const [showApartmentDialog, setShowApartmentDialog] = React.useState(false);
+  const [showPhoneDialog, setShowPhoneDialog] = React.useState(false);
   const [editingSubscription, setEditingSubscription] = React.useState<Subscription | null>(null);
   const [editingApartmentPayment, setEditingApartmentPayment] = React.useState<ApartmentPayment | null>(null);
+  const [editingPhonePayment, setEditingPhonePayment] = React.useState<PhonePayment | null>(null);
   const [isSaving, setIsSaving] = React.useState(false);
   const { toast } = useToast();
 
@@ -50,15 +53,26 @@ export default function SubscriptionsPage() {
     notes: "",
   });
 
+  const [phoneFormData, setPhoneFormData] = React.useState({
+    phoneName: "",
+    totalAmount: "",
+    monthlyPayment: "",
+    startDate: "",
+    endDate: "",
+    notes: "",
+  });
+
   const loadSubscriptions = React.useCallback(async (userId: string) => {
     try {
       setLoading(true);
-      const [subsData, aptData] = await Promise.all([
+      const [subsData, aptData, phoneData] = await Promise.all([
         getSubscriptions(userId),
         getApartmentPayments(userId),
+        getPhonePayments(userId),
       ]);
       setSubscriptions(subsData);
       setApartmentPayments(aptData);
+      setPhonePayments(phoneData);
     } catch (error) {
       console.error("Error loading data:", error);
       toast({
@@ -348,6 +362,185 @@ export default function SubscriptionsPage() {
     return Math.ceil(diff / (1000 * 60 * 60 * 24));
   };
 
+  const handleOpenPhoneDialog = (payment?: PhonePayment) => {
+    if (payment) {
+      setEditingPhonePayment(payment);
+      setPhoneFormData({
+        phoneName: payment.phoneName,
+        totalAmount: payment.totalAmount.toString(),
+        monthlyPayment: payment.monthlyPayment.toString(),
+        startDate: format(payment.startDate, "yyyy-MM-dd"),
+        endDate: format(payment.endDate, "yyyy-MM-dd"),
+        notes: payment.notes || "",
+      });
+    } else {
+      setEditingPhonePayment(null);
+      setPhoneFormData({
+        phoneName: "",
+        totalAmount: "",
+        monthlyPayment: "",
+        startDate: "",
+        endDate: "",
+        notes: "",
+      });
+    }
+    setShowPhoneDialog(true);
+  };
+
+  const handleClosePhoneDialog = () => {
+    setShowPhoneDialog(false);
+    setEditingPhonePayment(null);
+    setPhoneFormData({
+      phoneName: "",
+      totalAmount: "",
+      monthlyPayment: "",
+      startDate: "",
+      endDate: "",
+      notes: "",
+    });
+  };
+
+  const handleSavePhone = async () => {
+    if (!user) return;
+
+    if (!phoneFormData.phoneName || !phoneFormData.totalAmount || !phoneFormData.monthlyPayment || !phoneFormData.startDate || !phoneFormData.endDate) {
+      toast({
+        title: "Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const totalAmount = parseFloat(phoneFormData.totalAmount);
+    const monthlyPayment = parseFloat(phoneFormData.monthlyPayment);
+
+    if (isNaN(totalAmount) || totalAmount <= 0) {
+      toast({
+        title: "Error",
+        description: "Total amount must be a positive number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isNaN(monthlyPayment) || monthlyPayment <= 0) {
+      toast({
+        title: "Error",
+        description: "Monthly payment must be a positive number",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const startDate = new Date(phoneFormData.startDate);
+    const endDate = new Date(phoneFormData.endDate);
+
+    if (endDate <= startDate) {
+      toast({
+        title: "Error",
+        description: "End date must be after start date",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      if (editingPhonePayment) {
+        await updatePhonePayment(user.uid, editingPhonePayment.id, {
+          phoneName: phoneFormData.phoneName.trim(),
+          totalAmount,
+          monthlyPayment,
+          startDate,
+          endDate,
+          notes: phoneFormData.notes.trim() || undefined,
+        });
+        toast({
+          title: "Success",
+          description: "Phone payment updated successfully",
+        });
+      } else {
+        await createPhonePayment(user.uid, {
+          phoneName: phoneFormData.phoneName.trim(),
+          totalAmount,
+          monthlyPayment,
+          startDate,
+          endDate,
+          notes: phoneFormData.notes.trim() || undefined,
+        });
+        toast({
+          title: "Success",
+          description: "Phone payment created successfully",
+        });
+      }
+      await loadSubscriptions(user.uid);
+      handleClosePhoneDialog();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save phone payment",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeletePhone = async (payment: PhonePayment) => {
+    if (!user) return;
+    if (!confirm(`Are you sure you want to delete this phone payment?`)) return;
+
+    try {
+      await deletePhonePayment(user.uid, payment.id);
+      toast({
+        title: "Success",
+        description: "Phone payment deleted successfully",
+      });
+      await loadSubscriptions(user.uid);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to delete phone payment",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const calculatePhoneProgress = (payment: PhonePayment) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const start = new Date(payment.startDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(payment.endDate);
+    end.setHours(0, 0, 0, 0);
+
+    const totalDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    const daysPassed = Math.ceil((today.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    const daysRemaining = Math.ceil((end.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    const totalMonths = Math.ceil(totalDays / 30);
+    const monthsPassed = Math.max(0, Math.min(totalMonths, Math.ceil(daysPassed / 30)));
+    const monthsRemaining = Math.max(0, Math.ceil(daysRemaining / 30));
+
+    const paidAmount = monthsPassed * payment.monthlyPayment;
+    const remainingAmount = payment.totalAmount - paidAmount;
+
+    const progressPercent = Math.max(0, Math.min(100, (paidAmount / payment.totalAmount) * 100));
+
+    return {
+      totalDays,
+      daysPassed: Math.max(0, daysPassed),
+      daysRemaining: Math.max(0, daysRemaining),
+      totalMonths,
+      monthsPassed,
+      monthsRemaining,
+      paidAmount,
+      remainingAmount,
+      progressPercent,
+    };
+  };
+
   const totalMonthly = subscriptions
     .filter(sub => sub.active)
     .reduce((sum, sub) => sum + sub.amount, 0);
@@ -561,6 +754,141 @@ export default function SubscriptionsPage() {
                         </div>
                       </>
                     )}
+
+                    {payment.notes && (
+                      <div className="text-sm text-muted-foreground pt-2 border-t">
+                        {payment.notes}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Phone Payments Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Smartphone className="h-5 w-5" />
+                Phone Payments
+              </CardTitle>
+              <CardDescription>
+                Track your phone installment payments and remaining balance
+              </CardDescription>
+            </div>
+            <Button onClick={() => handleOpenPhoneDialog()}>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Phone Payment
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {loading ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" />
+            </div>
+          ) : phonePayments.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              No phone payments yet. Click &quot;Add Phone Payment&quot; to get started.
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {phonePayments.map((payment) => {
+                const progress = calculatePhoneProgress(payment);
+                const isActive = progress.daysRemaining > 0;
+
+                return (
+                  <div
+                    key={payment.id}
+                    className={`p-4 border rounded-lg space-y-3 ${
+                      !isActive ? "opacity-50" : ""
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-lg">{payment.phoneName}</h3>
+                          {!isActive && (
+                            <span className="text-xs px-2 py-0.5 bg-muted rounded">Completed</span>
+                          )}
+                          {isActive && progress.monthsRemaining <= 3 && (
+                            <span className="text-xs px-2 py-0.5 bg-orange-500/20 text-orange-600 dark:text-orange-400 rounded">
+                              Almost Done
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-sm text-muted-foreground mt-1">
+                          ₪{payment.monthlyPayment.toFixed(2)}/month • Total: ₪{payment.totalAmount.toFixed(2)}
+                        </div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {format(payment.startDate, "MMM d, yyyy")} - {format(payment.endDate, "MMM d, yyyy")}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleOpenPhoneDialog(payment)}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeletePhone(payment)}
+                          className="text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Payment Progress</span>
+                        <span className="font-medium">{progress.progressPercent.toFixed(1)}%</span>
+                      </div>
+                      <div className="relative w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                        <div
+                          className="absolute left-0 top-0 h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
+                          style={{ width: `${progress.progressPercent}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-xs text-muted-foreground">
+                        <span>Paid: ₪{progress.paidAmount.toFixed(2)}</span>
+                        <span className={progress.remainingAmount > 0 ? "text-red-600 dark:text-red-400 font-semibold" : "text-green-600 dark:text-green-400"}>
+                          Remaining: ₪{progress.remainingAmount.toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Payment Details */}
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pt-2 border-t">
+                      <div>
+                        <div className="text-xs text-muted-foreground">Months Passed</div>
+                        <div className="font-semibold">{progress.monthsPassed} / {progress.totalMonths}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Months Remaining</div>
+                        <div className="font-semibold">{progress.monthsRemaining}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Days Remaining</div>
+                        <div className={`font-semibold ${progress.daysRemaining <= 90 ? "text-orange-600 dark:text-orange-400" : ""}`}>
+                          {progress.daysRemaining}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-xs text-muted-foreground">Monthly Payment</div>
+                        <div className="font-semibold">₪{payment.monthlyPayment.toFixed(2)}</div>
+                      </div>
+                    </div>
 
                     {payment.notes && (
                       <div className="text-sm text-muted-foreground pt-2 border-t">

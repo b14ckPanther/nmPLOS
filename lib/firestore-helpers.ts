@@ -29,7 +29,8 @@ import type {
   WorkRecord,
   Subscription,
   Loan,
-  ApartmentPayment
+  ApartmentPayment,
+  PhonePayment
 } from "@/firebase/types";
 
 // Helper to ensure db is available
@@ -600,6 +601,57 @@ export const updateApartmentPayment = async (uid: string, paymentId: string, upd
 export const deleteApartmentPayment = async (uid: string, paymentId: string): Promise<void> => {
   const firestore = ensureDb();
   const docRef = doc(firestore, `users/${uid}/apartmentPayments`, paymentId);
+  await deleteDoc(docRef);
+};
+
+// Phone Payments
+export const getPhonePayments = async (uid: string): Promise<PhonePayment[]> => {
+  const firestore = ensureDb();
+  const paymentsRef = collection(firestore, `users/${uid}/phonePayments`);
+  const q = query(paymentsRef, orderBy("startDate", "desc"));
+  const snapshot = await getDocs(q);
+  
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    startDate: toDate(doc.data().startDate) || new Date(),
+    endDate: toDate(doc.data().endDate) || new Date(),
+    createdAt: toDate(doc.data().createdAt) || new Date(),
+    updatedAt: toDate(doc.data().updatedAt) || new Date(),
+  })) as PhonePayment[];
+};
+
+export const createPhonePayment = async (uid: string, payment: Omit<PhonePayment, "id" | "createdAt" | "updatedAt">): Promise<string> => {
+  const firestore = ensureDb();
+  const paymentsRef = collection(firestore, `users/${uid}/phonePayments`);
+  const docRef = doc(paymentsRef);
+  await setDoc(docRef, {
+    ...payment,
+    startDate: toTimestamp(payment.startDate),
+    endDate: toTimestamp(payment.endDate),
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+  return docRef.id;
+};
+
+export const updatePhonePayment = async (uid: string, paymentId: string, updates: Partial<PhonePayment>): Promise<void> => {
+  const firestore = ensureDb();
+  const docRef = doc(firestore, `users/${uid}/phonePayments`, paymentId);
+  const updateData: any = { ...updates };
+  if (updates.startDate !== undefined) {
+    updateData.startDate = updates.startDate ? toTimestamp(updates.startDate) : null;
+  }
+  if (updates.endDate !== undefined) {
+    updateData.endDate = updates.endDate ? toTimestamp(updates.endDate) : null;
+  }
+  updateData.updatedAt = Timestamp.now();
+  await updateDoc(docRef, updateData);
+};
+
+export const deletePhonePayment = async (uid: string, paymentId: string): Promise<void> => {
+  const firestore = ensureDb();
+  const docRef = doc(firestore, `users/${uid}/phonePayments`, paymentId);
   await deleteDoc(docRef);
 };
 
