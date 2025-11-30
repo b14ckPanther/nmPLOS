@@ -1,6 +1,6 @@
 "use client";
 
-import { Sidebar } from "@/components/sidebar";
+import { SidebarV2 as Sidebar } from "@/components/sidebar-v2";
 import { CommandPalette } from "@/components/command-palette";
 import { AuthGuard } from "@/components/auth-guard";
 import { ThemeToggle } from "@/components/theme-toggle";

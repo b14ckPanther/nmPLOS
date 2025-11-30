@@ -93,6 +93,21 @@ service cloud.firestore {
       match /freelanceIncomes/{incomeId} {
         allow read, write: if isOwner(userId);
       }
+      
+      // Sidebar preferences
+      match /settings/sidebar {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Gym data - workouts, lessons, attendance, progress, alerts
+      match /gym/{document=**} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Prayer records
+      match /prayer/{document=**} {
+        allow read, write: if isOwner(userId);
+      }
     }
     
     // Deny all other access

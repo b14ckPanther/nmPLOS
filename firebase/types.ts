@@ -209,3 +209,116 @@ export interface FreelanceIncome {
   updatedAt: Date;
 }
 
+// Sidebar Navigation Types
+export interface NavItem {
+  href: string;
+  label: string;
+  iconName: string; // Icon name from lucide-react
+}
+
+export interface SidebarCategory {
+  id: string;
+  name: string;
+  icon?: string;
+  items: NavItem[];
+  order: number;
+  collapsed?: boolean;
+}
+
+export interface SidebarPreferences {
+  categories: SidebarCategory[];
+  updatedAt: Date;
+}
+
+// Prayer Types
+export interface PrayerTimes {
+  fajr: string;
+  dhuhr: string;
+  asr: string;
+  maghrib: string;
+  isha: string;
+  date: string;
+}
+
+export interface PrayerRecord {
+  id: string;
+  prayer: "fajr" | "dhuhr" | "asr" | "maghrib" | "isha";
+  date: Date;
+  completed: boolean;
+  completedAt?: Date;
+  createdAt: Date;
+}
+
+export interface Dua {
+  id: string;
+  title: string;
+  text: string;
+  translation?: string;
+  category?: string;
+  date: Date;
+  createdAt: Date;
+}
+
+// Gym Types
+export interface GymWorkout {
+  id: string;
+  date: Date;
+  workoutType: string;
+  exercises: GymExercise[];
+  duration: number; // minutes
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface GymExercise {
+  name: string;
+  sets: number;
+  reps: number;
+  weight?: number; // kg
+  duration?: number; // seconds for time-based exercises
+  notes?: string;
+}
+
+export interface GymLesson {
+  id: string;
+  title: string;
+  date: Date;
+  startTime: string;
+  endTime: string;
+  instructor?: string;
+  type: "cardio" | "strength" | "yoga" | "pilates" | "boxing" | "other";
+  attended: boolean;
+  notes?: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface GymAttendance {
+  id: string;
+  date: Date;
+  workoutId?: string;
+  lessonId?: string;
+  duration: number; // minutes
+  createdAt: Date;
+}
+
+export interface GymProgress {
+  id: string;
+  metric: "weight" | "muscle_mass" | "body_fat" | "strength" | "endurance";
+  value: number;
+  unit: string;
+  date: Date;
+  notes?: string;
+  createdAt: Date;
+}
+
+export interface GymAlert {
+  id: string;
+  type: "missed_session" | "low_attendance" | "health_reminder";
+  message: string;
+  date: Date;
+  resolved: boolean;
+  createdAt: Date;
+}
+
