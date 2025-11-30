@@ -157,7 +157,7 @@ export function SidebarV2() {
         const cleanedCategories = prefs.categories.map(category => ({
           ...category,
           items: category.items.filter(item => item.href !== "/gmail")
-        })).filter(category => category.items.length > 0); // Remove empty categories
+        })).filter(category => category.items.length > 0 || category.id === "root"); // Keep root category even if empty
         
         // If we removed Gmail, save the cleaned preferences
         const hadGmail = prefs.categories.some(cat => cat.items.some(item => item.href === "/gmail"));
@@ -326,7 +326,10 @@ export function SidebarV2() {
           <p className="text-sm text-muted-foreground">Personal Life OS</p>
         </div>
         <nav className="flex-1 p-4 overflow-y-auto">
-          {categories.sort((a, b) => a.order - b.order).map(renderCategory)}
+          {categories
+            .filter(cat => cat.id !== "root" || cat.items.length > 0)
+            .sort((a, b) => a.order - b.order)
+            .map(renderCategory)}
         </nav>
       </aside>
 
@@ -362,7 +365,10 @@ export function SidebarV2() {
                 </Button>
               </div>
               <nav className="flex-1 p-4">
-                {categories.sort((a, b) => a.order - b.order).map(renderCategory)}
+                {categories
+                  .filter(cat => cat.id !== "root" || cat.items.length > 0)
+                  .sort((a, b) => a.order - b.order)
+                  .map(renderCategory)}
               </nav>
             </motion.aside>
           </>
