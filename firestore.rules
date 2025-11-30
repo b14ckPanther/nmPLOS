@@ -68,6 +68,21 @@ service cloud.firestore {
       match /habits/{habitId} {
         allow read, write: if isOwner(userId);
       }
+      
+      // Jobs - users can only access their own jobs
+      match /jobs/{jobId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Shifts - users can only access their own shifts
+      match /shifts/{shiftId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Work Records - users can only access their own work records
+      match /workRecords/{recordId} {
+        allow read, write: if isOwner(userId);
+      }
     }
     
     // Deny all other access

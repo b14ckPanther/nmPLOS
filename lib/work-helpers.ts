@@ -130,16 +130,29 @@ export const deleteShift = async (uid: string, shiftId: string): Promise<void> =
 export const getWorkRecords = async (uid: string, jobId?: string, year?: number, month?: number): Promise<WorkRecord[]> => {
   const firestore = ensureDb();
   const recordsRef = collection(firestore, `users/${uid}/workRecords`);
-  const constraints: QueryConstraint[] = [orderBy("year", "desc"), orderBy("month", "desc")];
+  const constraints: QueryConstraint[] = [];
+  
+  // Add where clauses first
   if (jobId) {
-    constraints.unshift(where("jobId", "==", jobId));
+    constraints.push(where("jobId", "==", jobId));
   }
   if (year !== undefined) {
-    constraints.unshift(where("year", "==", year));
+    constraints.push(where("year", "==", year));
   }
   if (month !== undefined) {
-    constraints.unshift(where("month", "==", month));
+    constraints.push(where("month", "==", month));
   }
+  
+  // Add orderBy - if year is filtered, order by year ascending (matching the filter), then month descending
+  // Otherwise, order by year descending, then month descending
+  if (year !== undefined) {
+    constraints.push(orderBy("year", "asc"));
+    constraints.push(orderBy("month", "desc"));
+  } else {
+    constraints.push(orderBy("year", "desc"));
+    constraints.push(orderBy("month", "desc"));
+  }
+  
   const q = query(recordsRef, ...constraints);
   const snapshot = await getDocs(q);
   return snapshot.docs.map(doc => ({
