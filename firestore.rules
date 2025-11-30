@@ -59,8 +59,13 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
       
+      // Gmail tokens
+      match /gmail/tokens {
+        allow read, write: if isOwner(userId);
+      }
+      
       // Gmail messages
-      match /gmail/{messageId} {
+      match /gmail/messages/{messageId} {
         allow read, write: if isOwner(userId);
       }
       
