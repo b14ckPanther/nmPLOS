@@ -235,11 +235,10 @@ export default function CoursesPage() {
     >
       <PageHeader
         title="Courses"
-        description="Track your courses, assignments, and progress"
+        description="Track degree progress"
       >
         <Button onClick={() => router.push("/courses/add")}>
           <Plus className="mr-2 h-4 w-4" />
-          Add Course
         </Button>
       </PageHeader>
 
