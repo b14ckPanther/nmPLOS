@@ -157,15 +157,61 @@ export function SidebarV2() {
       const prefs = await getSidebarPreferences(userId);
       if (prefs && prefs.categories.length > 0) {
         // Filter out Gmail items from saved preferences
-        const cleanedCategories = prefs.categories.map(category => ({
+        let cleanedCategories = prefs.categories.map(category => ({
           ...category,
           items: category.items.filter(item => item.href !== "/gmail")
         })).filter(category => category.items.length > 0 || category.id === "root"); // Keep root category even if empty
         
-        // If we removed Gmail, save the cleaned preferences
+        // Merge in any missing default pages
+        const defaultPagesMap = new Map<string, NavItem>();
+        defaultCategories.forEach(cat => {
+          cat.items.forEach(item => {
+            defaultPagesMap.set(item.href, item);
+          });
+        });
+
+        // Add missing pages to their respective categories
+        cleanedCategories = cleanedCategories.map(category => {
+          const defaultCategory = defaultCategories.find(dc => dc.id === category.id);
+          if (!defaultCategory) return category;
+
+          const existingHrefs = new Set(category.items.map(item => item.href));
+          const missingItems = defaultCategory.items.filter(item => !existingHrefs.has(item.href));
+          
+          if (missingItems.length > 0) {
+            return {
+              ...category,
+              items: [...category.items, ...missingItems]
+            };
+          }
+          return category;
+        });
+
+        // Add any missing categories
+        const existingCategoryIds = new Set(cleanedCategories.map(cat => cat.id));
+        const missingCategories = defaultCategories
+          .filter(dc => !existingCategoryIds.has(dc.id))
+          .map(dc => ({
+            ...dc,
+            items: dc.items.filter(item => item.href !== "/gmail")
+          }))
+          .filter(cat => cat.items.length > 0);
+
+        if (missingCategories.length > 0) {
+          cleanedCategories = [...cleanedCategories, ...missingCategories];
+        }
+        
+        // If we made changes, save the updated preferences
         const hadGmail = prefs.categories.some(cat => cat.items.some(item => item.href === "/gmail"));
-        if (hadGmail && cleanedCategories.length > 0) {
-          await saveSidebarPreferences(userId, cleanedCategories);
+        const hasNewPages = cleanedCategories.some(cat => {
+          const defaultCat = defaultCategories.find(dc => dc.id === cat.id);
+          if (!defaultCat) return false;
+          return cat.items.length !== defaultCat.items.length || 
+                 cat.items.some(item => !defaultCat.items.find(di => di.href === item.href));
+        });
+        
+        if (hadGmail || hasNewPages || missingCategories.length > 0) {
+          await saveSidebarPreferences(userId, cleanedCategories.filter(cat => cat.id !== "root"));
         }
         
         setCategories(cleanedCategories.length > 0 ? cleanedCategories : defaultCategories);
