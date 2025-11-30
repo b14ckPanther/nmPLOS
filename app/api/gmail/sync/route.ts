@@ -7,13 +7,14 @@ import { categorizeEmail } from "@/lib/gmail-ai-categorize";
 export const dynamic = 'force-dynamic';
 
 // Helper to refresh access token if needed
-async function getValidAccessToken(userId: string): Promise<string | null> {
+async function getValidAccessToken(userId: string, requestOrigin?: string): Promise<string | null> {
   const tokens = await getGmailTokensServer(userId);
   if (!tokens) return null;
 
   const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-  const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/api/gmail/callback`;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || requestOrigin || "http://localhost:3001";
+  const redirectUri = `${appUrl}/api/gmail/callback`;
 
   if (!clientId || !clientSecret) return null;
 
@@ -56,6 +57,10 @@ async function getValidAccessToken(userId: string): Promise<string | null> {
 
 export async function POST(request: NextRequest) {
   try {
+    // Detect the app URL from the request
+    const origin = request.nextUrl.origin;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
+
     const body = await request.json();
     const { userId } = body;
 
@@ -66,7 +71,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const accessToken = await getValidAccessToken(userId);
+    const accessToken = await getValidAccessToken(userId, origin);
     if (!accessToken) {
       return NextResponse.json(
         { error: "Gmail not connected or token expired" },
@@ -76,7 +81,7 @@ export async function POST(request: NextRequest) {
 
     const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/api/gmail/callback`;
+    const redirectUri = `${appUrl}/api/gmail/callback`;
 
     const oauth2Client = new google.auth.OAuth2(
       clientId,

@@ -16,9 +16,13 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Detect the app URL from the request
+    const origin = request.nextUrl.origin;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
+
     const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/api/gmail/callback`;
+    const redirectUri = `${appUrl}/api/gmail/callback`;
 
     if (!clientId || !clientSecret) {
       return NextResponse.json(

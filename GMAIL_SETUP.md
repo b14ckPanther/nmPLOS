@@ -37,7 +37,15 @@
      - Copy the Client ID (shown as "297028033658-xxxxx..." or similar)
      - Click "Show" next to Client Secret to reveal and copy it (only shown once!)
 
-4. **Add to Environment Variables**
+4. **Add Test Users (Important for Development!)**
+   - Go to "APIs & Services" > "OAuth consent screen"
+   - Scroll down to "Test users" section
+   - Click "+ ADD USERS"
+   - Add your Gmail email address (the one you want to use for testing)
+   - Click "Add"
+   - **Why?** Unverified apps can only be used by test users. Without adding yourself, you'll see a warning screen.
+
+5. **Add to Environment Variables**
    Add these to your `.env.local` file:
    ```
    GOOGLE_OAUTH_CLIENT_ID=your_client_id_here
@@ -60,6 +68,28 @@ npm install googleapis
 5. Exchange authorization code for access/refresh tokens
 6. Store tokens securely in Firestore
 7. Use tokens to fetch emails via Gmail API
+
+## Troubleshooting
+
+### "Google hasn't verified this app" Warning
+
+If you see a warning screen saying "Google hasn't verified this app":
+
+**Option 1: Add yourself as a test user (Recommended)**
+1. Go to Google Cloud Console > "APIs & Services" > "OAuth consent screen"
+2. Scroll to "Test users" section
+3. Click "+ ADD USERS" and add your Gmail address
+4. Save and try connecting again
+
+**Option 2: Click "Advanced" and proceed**
+1. Click "Advanced" at the bottom left
+2. Click "Go to [your app name] (unsafe)"
+3. This is safe for development/testing
+
+**For Production:**
+- You'll need to submit your app for Google's verification process
+- This requires providing privacy policy, terms of service, and other documentation
+- See: https://support.google.com/cloud/answer/9110914
 
 ## Security Notes
 

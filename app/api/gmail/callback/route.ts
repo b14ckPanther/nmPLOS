@@ -7,6 +7,10 @@ export const dynamic = 'force-dynamic';
 
 export async function GET(request: NextRequest) {
   try {
+    // Detect the app URL from the request
+    const origin = request.nextUrl.origin;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
+
     const searchParams = request.nextUrl.searchParams;
     const code = searchParams.get("code");
     const state = searchParams.get("state"); // userId
@@ -14,23 +18,23 @@ export async function GET(request: NextRequest) {
 
     if (error) {
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/gmail?error=${encodeURIComponent(error)}`
+        `${appUrl}/gmail?error=${encodeURIComponent(error)}`
       );
     }
 
     if (!code || !state) {
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/gmail?error=missing_parameters`
+        `${appUrl}/gmail?error=missing_parameters`
       );
     }
 
     const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/api/gmail/callback`;
+    const redirectUri = `${appUrl}/api/gmail/callback`;
 
     if (!clientId || !clientSecret) {
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/gmail?error=config_error`
+        `${appUrl}/gmail?error=config_error`
       );
     }
 
@@ -45,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     if (!tokens.access_token || !tokens.refresh_token) {
       return NextResponse.redirect(
-        `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/gmail?error=token_error`
+        `${appUrl}/gmail?error=token_error`
       );
     }
 
@@ -59,12 +63,14 @@ export async function GET(request: NextRequest) {
 
     // Redirect back to Gmail page with success
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/gmail?connected=true`
+      `${appUrl}/gmail?connected=true`
     );
   } catch (error: any) {
     console.error("Gmail callback error:", error);
+    const origin = request.nextUrl.origin;
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || origin;
     return NextResponse.redirect(
-      `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3001"}/gmail?error=${encodeURIComponent(error.message || "callback_error")}`
+      `${appUrl}/gmail?error=${encodeURIComponent(error.message || "callback_error")}`
     );
   }
 }
