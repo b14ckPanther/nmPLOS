@@ -61,7 +61,20 @@ export default function WorkPage() {
   const [editingFreelance, setEditingFreelance] = useState<FreelanceIncome | null>(null);
   const [editingRecord, setEditingRecord] = useState<WorkRecord | null>(null);
   const [shiftsExpanded, setShiftsExpanded] = useState(false);
+  const [expandedShifts, setExpandedShifts] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+
+  const toggleShiftExpansion = (shiftId: string) => {
+    setExpandedShifts(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(shiftId)) {
+        newSet.delete(shiftId);
+      } else {
+        newSet.add(shiftId);
+      }
+      return newSet;
+    });
+  };
 
   const [jobFormData, setJobFormData] = useState({
     title: "",
@@ -224,6 +237,43 @@ export default function WorkPage() {
       overtime125Hours,
       overtime150Hours,
     };
+  };
+
+  // Get shift type colors
+  const getShiftTypeColors = (shiftType: string, isOvertime: boolean) => {
+    if (isOvertime) {
+      return {
+        bg: "bg-orange-500/20",
+        text: "text-orange-300",
+        border: "border-orange-500/30",
+      };
+    }
+    switch (shiftType) {
+      case "morning":
+        return {
+          bg: "bg-blue-500/20",
+          text: "text-blue-300",
+          border: "border-blue-500/30",
+        };
+      case "afternoon":
+        return {
+          bg: "bg-purple-500/20",
+          text: "text-purple-300",
+          border: "border-purple-500/30",
+        };
+      case "night":
+        return {
+          bg: "bg-indigo-500/20",
+          text: "text-indigo-300",
+          border: "border-indigo-500/30",
+        };
+      default:
+        return {
+          bg: "bg-gray-500/20",
+          text: "text-gray-300",
+          border: "border-gray-500/30",
+        };
+    }
   };
 
   // Get shifts for selected month
@@ -1559,13 +1609,13 @@ export default function WorkPage() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="overflow-x-hidden">
                   {/* Salary Calculator */}
                   <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950/20 dark:to-purple-950/20 rounded-xl border border-blue-200/50 dark:border-blue-800/50">
-                    <div className="flex items-center justify-between mb-4">
-                      <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Calculator className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                        <h3 className="font-semibold">Monthly Salary Calculation</h3>
+                        <h3 className="font-semibold text-sm sm:text-base">Monthly Salary Calculation</h3>
                         {currentMonthRecord && (
                           <span className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-300 rounded">
                             Saved
@@ -1577,6 +1627,7 @@ export default function WorkPage() {
                         size="sm"
                         onClick={handleSaveMonthlyRecord}
                         disabled={monthShifts.length === 0}
+                        className="w-full sm:w-auto"
                       >
                         {currentMonthRecord ? "Update Record" : "Save Monthly Record"}
                       </Button>
@@ -1642,7 +1693,14 @@ export default function WorkPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => setShiftsExpanded(!shiftsExpanded)}
+                          onClick={() => {
+                            if (shiftsExpanded) {
+                              setExpandedShifts(new Set());
+                            } else {
+                              setExpandedShifts(new Set(monthShifts.map(s => s.id)));
+                            }
+                            setShiftsExpanded(!shiftsExpanded);
+                          }}
                           className="h-8"
                         >
                           {shiftsExpanded ? (
@@ -1658,82 +1716,134 @@ export default function WorkPage() {
                           )}
                         </Button>
                       </div>
-                      {shiftsExpanded ? (
-                        monthShifts.map((shift) => {
-                          const pay = selectedJob ? calculateShiftPay(shift, selectedJob) : { 
-                            regularPay: 0, 
-                            overtime125Pay: 0, 
-                            overtime150Pay: 0, 
-                            totalPay: 0,
-                            regularHours: 0,
-                            overtime125Hours: 0,
-                            overtime150Hours: 0,
-                          };
-                          const dayOfWeek = shift.date.getDay();
-                          const dayName = format(shift.date, "EEEE");
-                          return (
+                      {monthShifts.map((shift) => {
+                        const pay = selectedJob ? calculateShiftPay(shift, selectedJob) : { 
+                          regularPay: 0, 
+                          overtime125Pay: 0, 
+                          overtime150Pay: 0, 
+                          totalPay: 0,
+                          regularHours: 0,
+                          overtime125Hours: 0,
+                          overtime150Hours: 0,
+                        };
+                        const isExpanded = expandedShifts.has(shift.id) || shiftsExpanded;
+                        const shiftColors = getShiftTypeColors(shift.shiftType, shift.isOvertime);
+                        const dayName = format(shift.date, "EEEE");
+                        
+                        return (
+                          <div
+                            key={shift.id}
+                            className="border rounded-lg overflow-hidden hover:bg-muted/50 transition-colors max-w-full"
+                          >
+                            {/* Collapsed/Card Header */}
                             <div
-                              key={shift.id}
-                              className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                              className="flex items-center justify-between p-3 sm:p-4 cursor-pointer gap-2 sm:gap-4"
+                              onClick={(e) => {
+                                // Don't toggle if clicking edit/delete buttons
+                                if ((e.target as HTMLElement).closest('button')) return;
+                                toggleShiftExpansion(shift.id);
+                              }}
                             >
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <Clock className="h-4 w-4 text-muted-foreground" />
-                                  <span className="font-medium">{format(shift.date, "MMM d, yyyy")} ({dayName})</span>
-                                  <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded capitalize">
-                                    {shift.shiftType}
+                              <div className="flex items-center gap-2 sm:gap-3 flex-1 min-w-0">
+                                <Clock className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 min-w-0 flex-1">
+                                  <span className="font-medium text-sm sm:text-base whitespace-nowrap">
+                                    {format(shift.date, "MMM d")} ({dayName.slice(0, 3)})
+                                  </span>
+                                  <span className={`text-xs px-2 py-0.5 rounded-full capitalize ${shiftColors.bg} ${shiftColors.text} ${shiftColors.border} border flex-shrink-0`}>
+                                    {shift.shiftType === "morning" ? "Morning" : shift.shiftType === "afternoon" ? "Afternoon" : "Night"}
                                   </span>
                                   {shift.isOvertime && (
-                                    <span className="text-xs px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded">
+                                    <span className="text-xs px-2 py-0.5 rounded-full bg-orange-500/20 text-orange-300 border border-orange-500/30 flex-shrink-0">
                                       Overtime
                                     </span>
                                   )}
                                 </div>
-                                <div className="text-sm text-muted-foreground">
-                                  {shift.startTime} - {shift.endTime} • {shift.hours}h
-                                  {pay.regularHours > 0 && ` (${pay.regularHours.toFixed(1)}h @ 100%`}
-                                  {pay.overtime125Hours > 0 && `, ${pay.overtime125Hours.toFixed(1)}h @ 125%`}
-                                  {pay.overtime150Hours > 0 && `, ${pay.overtime150Hours.toFixed(1)}h @ 150%`}
-                                  {pay.regularHours > 0 && `)`}
-                                  {shift.notes && ` • ${shift.notes}`}
-                                </div>
                               </div>
-                              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                                <div className="text-left sm:text-right w-full sm:w-auto">
-                                  <div className="text-sm font-medium">₪{pay.totalPay.toFixed(2)}</div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {pay.regularPay > 0 && `₪${pay.regularPay.toFixed(2)} reg`}
-                                    {pay.regularPay > 0 && (pay.overtime125Pay > 0 || pay.overtime150Pay > 0) && " + "}
-                                    {pay.overtime125Pay > 0 && `₪${pay.overtime125Pay.toFixed(2)} @125%`}
-                                    {pay.overtime125Pay > 0 && pay.overtime150Pay > 0 && " + "}
-                                    {pay.overtime150Pay > 0 && `₪${pay.overtime150Pay.toFixed(2)} @150%`}
+                              <div className="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+                                <div className="text-right">
+                                  <div className="text-base sm:text-lg font-semibold whitespace-nowrap">
+                                    ₪{pay.totalPay.toFixed(2)}
                                   </div>
                                 </div>
-                                <div className="flex gap-2 self-end sm:self-auto">
+                                <div className="flex gap-1">
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    onClick={() => handleEditShift(shift)}
+                                    className="h-8 w-8"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEditShift(shift);
+                                    }}
                                   >
                                     <Edit2 className="h-4 w-4" />
                                   </Button>
                                   <Button
                                     variant="ghost"
                                     size="icon"
-                                    onClick={() => handleDeleteShift(shift.id)}
+                                    className="h-8 w-8"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteShift(shift.id);
+                                    }}
                                   >
                                     <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </div>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-8 flex-shrink-0"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleShiftExpansion(shift.id);
+                                  }}
+                                >
+                                  {isExpanded ? (
+                                    <ChevronUp className="h-4 w-4" />
+                                  ) : (
+                                    <ChevronDown className="h-4 w-4" />
+                                  )}
+                                </Button>
                               </div>
                             </div>
-                          );
-                        })
-                      ) : (
-                        <div className="text-center py-4 text-muted-foreground text-sm">
-                          Click &quot;Expand All&quot; to view {monthShifts.length} shift{monthShifts.length !== 1 ? 's' : ''}
-                        </div>
-                      )}
+
+                            {/* Expanded Details */}
+                            {isExpanded && (
+                              <div className="px-3 sm:px-4 pb-3 sm:pb-4 border-t pt-3 sm:pt-4 space-y-2">
+                                <div className="text-sm text-muted-foreground">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span>{shift.startTime} - {shift.endTime}</span>
+                                    <span>•</span>
+                                    <span>{shift.hours}h</span>
+                                  </div>
+                                  {(pay.regularHours > 0 || pay.overtime125Hours > 0 || pay.overtime150Hours > 0) && (
+                                    <div className="text-xs">
+                                      {pay.regularHours > 0 && `${pay.regularHours.toFixed(1)}h @ 100%`}
+                                      {pay.regularHours > 0 && (pay.overtime125Hours > 0 || pay.overtime150Hours > 0) && ", "}
+                                      {pay.overtime125Hours > 0 && `${pay.overtime125Hours.toFixed(1)}h @ 125%`}
+                                      {pay.overtime125Hours > 0 && pay.overtime150Hours > 0 && ", "}
+                                      {pay.overtime150Hours > 0 && `${pay.overtime150Hours.toFixed(1)}h @ 150%`}
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="text-xs text-muted-foreground space-y-1">
+                                  <div>
+                                    {pay.regularPay > 0 && `₪${pay.regularPay.toFixed(2)} reg`}
+                                    {pay.regularPay > 0 && (pay.overtime125Pay > 0 || pay.overtime150Pay > 0) && " + "}
+                                    {pay.overtime125Pay > 0 && `₪${pay.overtime125Pay.toFixed(2)} @125%`}
+                                    {pay.overtime125Pay > 0 && pay.overtime150Pay > 0 && " + "}
+                                    {pay.overtime150Pay > 0 && `₪${pay.overtime150Pay.toFixed(2)} @150%`}
+                                  </div>
+                                  {shift.notes && (
+                                    <div className="pt-1 italic">Notes: {shift.notes}</div>
+                                  )}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
                 </CardContent>
