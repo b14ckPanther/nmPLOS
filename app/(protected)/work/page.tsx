@@ -25,7 +25,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Edit2, Trash2, Briefcase, Calendar, Clock, DollarSign, Plane, Heart, Calculator, FileText, TrendingUp } from "lucide-react";
+import { Plus, Edit2, Trash2, Briefcase, Calendar, Clock, DollarSign, Plane, Heart, Calculator, FileText, TrendingUp, ChevronDown, ChevronUp, ChevronsDownUp, ChevronsUpDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/page-header";
 import { motion } from "framer-motion";
@@ -55,10 +55,12 @@ export default function WorkPage() {
   const [openShiftDialog, setOpenShiftDialog] = useState(false);
   const [openFreelanceDialog, setOpenFreelanceDialog] = useState(false);
   const [openSaveRecordDialog, setOpenSaveRecordDialog] = useState(false);
+  const [openManualSalaryDialog, setOpenManualSalaryDialog] = useState(false);
   const [editingJob, setEditingJob] = useState<Job | null>(null);
   const [editingShift, setEditingShift] = useState<Shift | null>(null);
   const [editingFreelance, setEditingFreelance] = useState<FreelanceIncome | null>(null);
   const [editingRecord, setEditingRecord] = useState<WorkRecord | null>(null);
+  const [shiftsExpanded, setShiftsExpanded] = useState(false);
   const { toast } = useToast();
 
   const [jobFormData, setJobFormData] = useState({
@@ -94,6 +96,19 @@ export default function WorkPage() {
     status: "pending" as "pending" | "paid" | "overdue",
     dueDate: "",
     paidDate: "",
+    notes: "",
+  });
+
+  const [manualSalaryFormData, setManualSalaryFormData] = useState({
+    jobId: "",
+    year: new Date().getFullYear(),
+    month: new Date().getMonth() + 1,
+    totalPay: "",
+    totalHours: "",
+    regularPay: "",
+    overtime125Pay: "",
+    overtime150Pay: "",
+    transportPayment: "",
     notes: "",
   });
 
@@ -273,6 +288,29 @@ export default function WorkPage() {
       .sort((a, b) => a.date.getTime() - b.date.getTime())
       .slice(0, 10);
   }, [shifts]);
+
+  // Group work records by year
+  const workRecordsByYear = useMemo(() => {
+    const grouped: Record<number, WorkRecord[]> = {};
+    workRecords.forEach(record => {
+      if (!grouped[record.year]) {
+        grouped[record.year] = [];
+      }
+      grouped[record.year].push(record);
+    });
+    // Sort each year's records by month (Jan to Dec)
+    Object.keys(grouped).forEach(year => {
+      grouped[parseInt(year)].sort((a, b) => a.month - b.month);
+    });
+    return grouped;
+  }, [workRecords]);
+
+  // Get all years sorted descending
+  const years = useMemo(() => {
+    return Object.keys(workRecordsByYear)
+      .map(y => parseInt(y))
+      .sort((a, b) => b - a);
+  }, [workRecordsByYear]);
 
   // Calculate monthly totals
   const monthlyTotals = useMemo(() => {
@@ -609,6 +647,69 @@ export default function WorkPage() {
       toast({
         title: "Error",
         description: error.message || "Failed to delete freelance income",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleManualSalarySubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    try {
+      const recordData = {
+        jobId: manualSalaryFormData.jobId,
+        month: manualSalaryFormData.month,
+        year: manualSalaryFormData.year,
+        totalHours: parseFloat(manualSalaryFormData.totalHours) || 0,
+        regularHours: parseFloat(manualSalaryFormData.totalHours) || 0,
+        overtimeHours: 0,
+        overtime125Hours: 0,
+        overtime150Hours: 0,
+        regularPay: parseFloat(manualSalaryFormData.regularPay) || 0,
+        overtimePay: 0,
+        overtime125Pay: parseFloat(manualSalaryFormData.overtime125Pay) || 0,
+        overtime150Pay: parseFloat(manualSalaryFormData.overtime150Pay) || 0,
+        transportPayment: parseFloat(manualSalaryFormData.transportPayment) || 0,
+        vacationDaysUsed: 0,
+        illnessDaysUsed: 0,
+        totalPay: parseFloat(manualSalaryFormData.totalPay),
+        shifts: [], // Empty array for manually added records
+      };
+
+      // Check if record already exists
+      const existingRecord = workRecords.find(
+        r => r.jobId === manualSalaryFormData.jobId && 
+        r.month === manualSalaryFormData.month && 
+        r.year === manualSalaryFormData.year
+      );
+
+      if (existingRecord) {
+        await updateWorkRecord(user.uid, existingRecord.id, recordData);
+        toast({ title: "Salary record updated", description: "Monthly salary has been updated." });
+      } else {
+        await createWorkRecord(user.uid, recordData);
+        toast({ title: "Salary record added", description: "Monthly salary has been added." });
+      }
+
+      setOpenManualSalaryDialog(false);
+      setManualSalaryFormData({
+        jobId: "",
+        year: new Date().getFullYear(),
+        month: new Date().getMonth() + 1,
+        totalPay: "",
+        totalHours: "",
+        regularPay: "",
+        overtime125Pay: "",
+        overtime150Pay: "",
+        transportPayment: "",
+        notes: "",
+      });
+      loadData(user.uid);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message || "Failed to save salary record",
         variant: "destructive",
       });
     }
@@ -1086,6 +1187,138 @@ export default function WorkPage() {
               </form>
             </DialogContent>
           </Dialog>
+          <Dialog open={openManualSalaryDialog} onOpenChange={setOpenManualSalaryDialog}>
+            <DialogContent className="sm:max-w-[500px]">
+              <DialogHeader>
+                <DialogTitle>Add Monthly Salary</DialogTitle>
+                <DialogDescription>
+                  Manually add a monthly salary record without individual shifts
+                </DialogDescription>
+              </DialogHeader>
+              <form onSubmit={handleManualSalarySubmit}>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="manualJobId">Job *</Label>
+                    <Select
+                      value={manualSalaryFormData.jobId}
+                      onValueChange={(value) => setManualSalaryFormData({ ...manualSalaryFormData, jobId: value })}
+                      required
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a job" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {jobs.map((job) => (
+                          <SelectItem key={job.id} value={job.id}>
+                            {job.title} - {job.company}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="manualYear">Year *</Label>
+                      <Input
+                        id="manualYear"
+                        type="number"
+                        value={manualSalaryFormData.year}
+                        onChange={(e) => setManualSalaryFormData({ ...manualSalaryFormData, year: parseInt(e.target.value) })}
+                        required
+                        min="2020"
+                        max="2100"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="manualMonth">Month *</Label>
+                      <Select
+                        value={manualSalaryFormData.month.toString()}
+                        onValueChange={(value) => setManualSalaryFormData({ ...manualSalaryFormData, month: parseInt(value) })}
+                        required
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].map((m) => (
+                            <SelectItem key={m} value={m.toString()}>
+                              {format(new Date(2000, m - 1, 1), "MMMM")}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="manualTotalPay">Total Pay (₪) *</Label>
+                    <Input
+                      id="manualTotalPay"
+                      type="number"
+                      step="0.01"
+                      value={manualSalaryFormData.totalPay}
+                      onChange={(e) => setManualSalaryFormData({ ...manualSalaryFormData, totalPay: e.target.value })}
+                      required
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="manualTotalHours">Total Hours</Label>
+                      <Input
+                        id="manualTotalHours"
+                        type="number"
+                        step="0.1"
+                        value={manualSalaryFormData.totalHours}
+                        onChange={(e) => setManualSalaryFormData({ ...manualSalaryFormData, totalHours: e.target.value })}
+                        placeholder="0"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="manualTransport">Transport Payment (₪)</Label>
+                      <Input
+                        id="manualTransport"
+                        type="number"
+                        step="0.01"
+                        value={manualSalaryFormData.transportPayment}
+                        onChange={(e) => setManualSalaryFormData({ ...manualSalaryFormData, transportPayment: e.target.value })}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="manualRegularPay">Regular Pay (₪)</Label>
+                      <Input
+                        id="manualRegularPay"
+                        type="number"
+                        step="0.01"
+                        value={manualSalaryFormData.regularPay}
+                        onChange={(e) => setManualSalaryFormData({ ...manualSalaryFormData, regularPay: e.target.value })}
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="manualOvertime125Pay">125% Overtime Pay (₪)</Label>
+                      <Input
+                        id="manualOvertime125Pay"
+                        type="number"
+                        step="0.01"
+                        value={manualSalaryFormData.overtime125Pay}
+                        onChange={(e) => setManualSalaryFormData({ ...manualSalaryFormData, overtime125Pay: e.target.value })}
+                        placeholder="0.00"
+                      />
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setOpenManualSalaryDialog(false)}>
+                    Cancel
+                  </Button>
+                  <Button type="submit">Add Salary</Button>
+                </DialogFooter>
+              </form>
+            </DialogContent>
+          </Dialog>
         </div>
       </PageHeader>
 
@@ -1404,80 +1637,183 @@ export default function WorkPage() {
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {monthShifts.map((shift) => {
-                        const pay = selectedJob ? calculateShiftPay(shift, selectedJob) : { 
-                          regularPay: 0, 
-                          overtime125Pay: 0, 
-                          overtime150Pay: 0, 
-                          totalPay: 0,
-                          regularHours: 0,
-                          overtime125Hours: 0,
-                          overtime150Hours: 0,
-                        };
-                        const dayOfWeek = shift.date.getDay();
-                        const dayName = format(shift.date, "EEEE");
-                        return (
-                          <div
-                            key={shift.id}
-                            className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                          >
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <Clock className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">{format(shift.date, "MMM d, yyyy")} ({dayName})</span>
-                                <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded capitalize">
-                                  {shift.shiftType}
-                                </span>
-                                {shift.isOvertime && (
-                                  <span className="text-xs px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded">
-                                    Overtime
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium">Shifts ({monthShifts.length})</span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setShiftsExpanded(!shiftsExpanded)}
+                          className="h-8"
+                        >
+                          {shiftsExpanded ? (
+                            <>
+                              <ChevronsUpDown className="h-4 w-4 mr-1" />
+                              Collapse All
+                            </>
+                          ) : (
+                            <>
+                              <ChevronsDownUp className="h-4 w-4 mr-1" />
+                              Expand All
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      {shiftsExpanded ? (
+                        monthShifts.map((shift) => {
+                          const pay = selectedJob ? calculateShiftPay(shift, selectedJob) : { 
+                            regularPay: 0, 
+                            overtime125Pay: 0, 
+                            overtime150Pay: 0, 
+                            totalPay: 0,
+                            regularHours: 0,
+                            overtime125Hours: 0,
+                            overtime150Hours: 0,
+                          };
+                          const dayOfWeek = shift.date.getDay();
+                          const dayName = format(shift.date, "EEEE");
+                          return (
+                            <div
+                              key={shift.id}
+                              className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                            >
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <Clock className="h-4 w-4 text-muted-foreground" />
+                                  <span className="font-medium">{format(shift.date, "MMM d, yyyy")} ({dayName})</span>
+                                  <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded capitalize">
+                                    {shift.shiftType}
                                   </span>
-                                )}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                {shift.startTime} - {shift.endTime} • {shift.hours}h
-                                {pay.regularHours > 0 && ` (${pay.regularHours.toFixed(1)}h @ 100%`}
-                                {pay.overtime125Hours > 0 && `, ${pay.overtime125Hours.toFixed(1)}h @ 125%`}
-                                {pay.overtime150Hours > 0 && `, ${pay.overtime150Hours.toFixed(1)}h @ 150%`}
-                                {pay.regularHours > 0 && `)`}
-                                {shift.notes && ` • ${shift.notes}`}
-                              </div>
-                            </div>
-                            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
-                              <div className="text-left sm:text-right w-full sm:w-auto">
-                                <div className="text-sm font-medium">₪{pay.totalPay.toFixed(2)}</div>
-                                <div className="text-xs text-muted-foreground">
-                                  {pay.regularPay > 0 && `₪${pay.regularPay.toFixed(2)} reg`}
-                                  {pay.regularPay > 0 && (pay.overtime125Pay > 0 || pay.overtime150Pay > 0) && " + "}
-                                  {pay.overtime125Pay > 0 && `₪${pay.overtime125Pay.toFixed(2)} @125%`}
-                                  {pay.overtime125Pay > 0 && pay.overtime150Pay > 0 && " + "}
-                                  {pay.overtime150Pay > 0 && `₪${pay.overtime150Pay.toFixed(2)} @150%`}
+                                  {shift.isOvertime && (
+                                    <span className="text-xs px-2 py-1 bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded">
+                                      Overtime
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {shift.startTime} - {shift.endTime} • {shift.hours}h
+                                  {pay.regularHours > 0 && ` (${pay.regularHours.toFixed(1)}h @ 100%`}
+                                  {pay.overtime125Hours > 0 && `, ${pay.overtime125Hours.toFixed(1)}h @ 125%`}
+                                  {pay.overtime150Hours > 0 && `, ${pay.overtime150Hours.toFixed(1)}h @ 150%`}
+                                  {pay.regularHours > 0 && `)`}
+                                  {shift.notes && ` • ${shift.notes}`}
                                 </div>
                               </div>
-                              <div className="flex gap-2 self-end sm:self-auto">
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleEditShift(shift)}
-                                >
-                                  <Edit2 className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => handleDeleteShift(shift.id)}
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
+                              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
+                                <div className="text-left sm:text-right w-full sm:w-auto">
+                                  <div className="text-sm font-medium">₪{pay.totalPay.toFixed(2)}</div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {pay.regularPay > 0 && `₪${pay.regularPay.toFixed(2)} reg`}
+                                    {pay.regularPay > 0 && (pay.overtime125Pay > 0 || pay.overtime150Pay > 0) && " + "}
+                                    {pay.overtime125Pay > 0 && `₪${pay.overtime125Pay.toFixed(2)} @125%`}
+                                    {pay.overtime125Pay > 0 && pay.overtime150Pay > 0 && " + "}
+                                    {pay.overtime150Pay > 0 && `₪${pay.overtime150Pay.toFixed(2)} @150%`}
+                                  </div>
+                                </div>
+                                <div className="flex gap-2 self-end sm:self-auto">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleEditShift(shift)}
+                                  >
+                                    <Edit2 className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleDeleteShift(shift.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
                               </div>
+                            </div>
+                          );
+                        })
+                      ) : (
+                        <div className="text-center py-4 text-muted-foreground text-sm">
+                          Click &quot;Expand All&quot; to view {monthShifts.length} shift{monthShifts.length !== 1 ? 's' : ''}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Annual Income Overview - All Years */}
+              {years.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div>
+                        <CardTitle className="flex items-center gap-2">
+                          <DollarSign className="h-5 w-5" />
+                          Annual Income Overview
+                        </CardTitle>
+                        <CardDescription>All years with monthly breakdown (Jan - Dec)</CardDescription>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setOpenManualSalaryDialog(true)}
+                      >
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Monthly Salary
+                      </Button>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      {years.map((year) => {
+                        const yearRecords = workRecordsByYear[year];
+                        const yearTotal = yearRecords.reduce((sum, r) => sum + r.totalPay, 0);
+                        const yearHours = yearRecords.reduce((sum, r) => sum + r.totalHours, 0);
+                        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+                        
+                        return (
+                          <div key={year} className="border rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-4">
+                              <div>
+                                <h3 className="text-lg font-semibold">{year}</h3>
+                                <div className="text-sm text-muted-foreground">
+                                  Total: ₪{yearTotal.toFixed(2)} • {yearHours.toFixed(1)}h
+                                </div>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-2">
+                              {monthNames.map((monthName, index) => {
+                                const monthNum = index + 1;
+                                const record = yearRecords.find(r => r.month === monthNum);
+                                return (
+                                  <div
+                                    key={monthNum}
+                                    className={`p-2 border rounded text-center ${
+                                      record ? "bg-green-50 dark:bg-green-950/20 border-green-200 dark:border-green-800" : "bg-muted/30"
+                                    }`}
+                                  >
+                                    <div className="text-xs font-medium">{monthName}</div>
+                                    {record ? (
+                                      <>
+                                        <div className="text-sm font-semibold text-green-600 dark:text-green-400 mt-1">
+                                          ₪{record.totalPay.toFixed(0)}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground">
+                                          {record.totalHours.toFixed(0)}h
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className="text-xs text-muted-foreground mt-1">-</div>
+                                    )}
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         );
                       })}
                     </div>
-                  )}
-                </CardContent>
-              </Card>
+                  </CardContent>
+                </Card>
+              )}
 
               {/* Yearly Summary */}
               {yearlyRecords.length > 0 && (

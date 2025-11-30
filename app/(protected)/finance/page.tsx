@@ -609,10 +609,14 @@ export default function FinancePage() {
           <CardContent>
             <div className="text-2xl font-bold text-green-600">₪{yearlyIncome.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
-              {yearlyWorkIncome > 0 && `₪${yearlyWorkIncome.toFixed(2)} from work`}
-              {yearlyWorkIncome > 0 && yearlyTransactions.filter((t) => t.type === "income").length > 0 && " + "}
+              {yearlyWorkIncome > 0 && (
+                <>
+                  ₪{yearlyWorkIncome.toFixed(2)} from work
+                  {yearlyTransactions.filter((t) => t.type === "income").length > 0 && " + "}
+                </>
+              )}
               {yearlyTransactions.filter((t) => t.type === "income").length > 0 && 
-                `${yearlyTransactions.filter((t) => t.type === "income").length} other transactions`}
+                `${yearlyTransactions.filter((t) => t.type === "income").length} other transaction${yearlyTransactions.filter((t) => t.type === "income").length !== 1 ? 's' : ''}`}
             </p>
           </CardContent>
         </Card>
