@@ -76,7 +76,7 @@ export const storeGmailMessage = async (
   const firestore = db;
   if (!firestore) throw new Error("Firestore not initialized");
 
-  const messagesRef = collection(firestore, `users/${userId}/gmail/messages`);
+  const messagesRef = collection(firestore, `users/${userId}/gmail/data/messages`);
   
   // Check if message already exists by gmailId
   const existingQuery = query(
@@ -89,7 +89,7 @@ export const storeGmailMessage = async (
   if (!existingSnap.empty) {
     // Update existing message
     docId = existingSnap.docs[0].id;
-    const docRef = doc(firestore, `users/${userId}/gmail/messages/${docId}`);
+    const docRef = doc(firestore, `users/${userId}/gmail/data/messages/${docId}`);
     await setDoc(docRef, {
       ...message,
       date: Timestamp.fromDate(message.date),
@@ -119,7 +119,7 @@ export const getGmailMessages = async (
   const firestore = db;
   if (!firestore) throw new Error("Firestore not initialized");
 
-  const messagesRef = collection(firestore, `users/${userId}/gmail/messages`);
+  const messagesRef = collection(firestore, `users/${userId}/gmail/data/messages`);
   let q = query(messagesRef, orderBy("date", "desc"));
 
   if (category && category !== "other") {
@@ -153,7 +153,7 @@ export const getEmailCountsByCategory = async (
   const firestore = db;
   if (!firestore) throw new Error("Firestore not initialized");
 
-  const messagesRef = collection(firestore, `users/${userId}/gmail/messages`);
+  const messagesRef = collection(firestore, `users/${userId}/gmail/data/messages`);
   const snapshot = await getDocs(messagesRef);
 
   const counts: Record<string, number> = {

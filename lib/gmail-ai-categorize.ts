@@ -20,7 +20,8 @@ export async function categorizeEmail(
 
   try {
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    // Using Gemini 2.0 Flash Experimental for faster email categorization
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
     const prompt = `Categorize this email into one of these categories: bills, assignments, projects, receipts, banking, university, or other.
 

@@ -32,7 +32,7 @@ Recent transactions: ${JSON.stringify(context.transactions || [])}
 `;
     }
 
-    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+    const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
     const prompt = `You are a helpful AI assistant for a Personal Life OS application. The user can ask you about their tasks, finances, schedule, courses, and more.
 

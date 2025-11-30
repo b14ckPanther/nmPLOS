@@ -64,8 +64,8 @@ service cloud.firestore {
         allow read, write: if isOwner(userId);
       }
       
-      // Gmail messages
-      match /gmail/messages/{messageId} {
+      // Gmail messages (stored under gmail/data/messages subcollection)
+      match /gmail/data/messages/{messageId} {
         allow read, write: if isOwner(userId);
       }
       
