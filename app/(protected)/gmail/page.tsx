@@ -3,10 +3,12 @@
 import { useEffect, useState } from "react";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { auth } from "@/firebase/client";
-import { getGmailTokens, getEmailCountsByCategory, deleteGmailTokens } from "@/lib/gmail-helpers";
+import { getGmailTokens, getEmailCountsByCategory, deleteGmailTokens, getGmailMessages } from "@/lib/gmail-helpers";
+import type { GmailMessage } from "@/firebase/types";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Mail, RefreshCw, CheckCircle2, XCircle, Loader2 } from "lucide-react";
+import { Mail, RefreshCw, CheckCircle2, XCircle, Loader2, ArrowLeft, Calendar, User as UserIcon } from "lucide-react";
+import { format } from "date-fns";
 import { useToast } from "@/hooks/use-toast";
 import {
   Dialog,
@@ -33,6 +35,10 @@ export default function GmailPage() {
     other: 0,
   });
   const [loading, setLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [categoryEmails, setCategoryEmails] = useState<GmailMessage[]>([]);
+  const [loadingEmails, setLoadingEmails] = useState(false);
+  const [selectedEmail, setSelectedEmail] = useState<GmailMessage | null>(null);
   const { toast } = useToast();
 
   // Check for OAuth callback results
@@ -162,6 +168,35 @@ export default function GmailPage() {
     }
   };
 
+  const handleCategoryClick = async (categoryKey: string) => {
+    if (!user || !isConnected) return;
+    if (emailCounts[categoryKey] === 0) {
+      toast({
+        title: "No emails",
+        description: `There are no emails in the ${categoryKey} category.`,
+      });
+      return;
+    }
+
+    setSelectedCategory(categoryKey);
+    setLoadingEmails(true);
+    setCategoryEmails([]);
+    setSelectedEmail(null);
+
+    try {
+      const emails = await getGmailMessages(user.uid, categoryKey);
+      setCategoryEmails(emails);
+    } catch (error: any) {
+      toast({
+        title: "Error loading emails",
+        description: error.message || "Failed to load emails for this category",
+        variant: "destructive",
+      });
+    } finally {
+      setLoadingEmails(false);
+    }
+  };
+
   const handleSyncEmails = async () => {
     if (!isConnected || !user) {
       setShowConnectDialog(true);
@@ -276,6 +311,7 @@ export default function GmailPage() {
                   return (
                     <div
                       key={category.key}
+                      onClick={() => handleCategoryClick(category.key)}
                       className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer"
                     >
                       <div className="flex items-center justify-between">
@@ -303,6 +339,115 @@ export default function GmailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Email List Dialog */}
+      <Dialog open={selectedCategory !== null} onOpenChange={(open) => {
+        if (!open) {
+          setSelectedCategory(null);
+          setSelectedEmail(null);
+          setCategoryEmails([]);
+        }
+      }}>
+        <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col p-0">
+          <DialogHeader className="px-6 pt-6 pb-4 border-b">
+            <DialogTitle className="flex items-center gap-2">
+              {selectedCategory && emailCategories.find(c => c.key === selectedCategory)?.name}
+              {selectedCategory && emailCounts[selectedCategory] > 0 && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  ({emailCounts[selectedCategory]} {emailCounts[selectedCategory] === 1 ? "email" : "emails"})
+                </span>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedEmail ? "Email details" : "Click on an email to view details"}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-hidden flex flex-col md:flex-row">
+            {/* Email List */}
+            <div className={`flex-1 overflow-y-auto p-4 border-b md:border-b-0 md:border-r ${selectedEmail ? 'hidden md:block' : 'block'} min-w-0`}>
+              {loadingEmails ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                </div>
+              ) : categoryEmails.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  No emails found in this category.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {categoryEmails.map((email) => (
+                    <div
+                      key={email.id}
+                      onClick={() => setSelectedEmail(email)}
+                      className={`p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer ${
+                        selectedEmail?.id === email.id ? 'bg-muted border-primary' : ''
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{email.subject || "(No subject)"}</p>
+                          <p className="text-sm text-muted-foreground truncate mt-1">{email.from}</p>
+                          <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                            <span className="flex items-center gap-1">
+                              <Calendar className="h-3 w-3" />
+                              {format(email.date, "MMM d, yyyy")}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      {email.body && (
+                        <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
+                          {email.body.substring(0, 150)}...
+                        </p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Email Details */}
+            {selectedEmail && (
+              <div className="flex flex-col flex-1 overflow-y-auto p-6 min-w-0">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="mb-4 self-start md:hidden"
+                  onClick={() => setSelectedEmail(null)}
+                >
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back to list
+                </Button>
+                
+                <div className="space-y-4">
+                  <div>
+                    <h2 className="text-xl font-bold break-words">{selectedEmail.subject || "(No subject)"}</h2>
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <UserIcon className="h-4 w-4" />
+                        {selectedEmail.from}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        {format(selectedEmail.date, "MMM d, yyyy 'at' h:mm a")}
+                      </span>
+                    </div>
+                  </div>
+                  
+                  <div className="border-t pt-4">
+                    <div className="prose dark:prose-invert max-w-none">
+                      <pre className="whitespace-pre-wrap text-sm font-sans break-words">
+                        {selectedEmail.body || "No content available."}
+                      </pre>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={showConnectDialog} onOpenChange={setShowConnectDialog}>
         <DialogContent>

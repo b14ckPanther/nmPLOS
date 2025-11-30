@@ -34,8 +34,16 @@ export async function GET(request: NextRequest) {
     });
 
     if (!clientId || !clientSecret) {
+      const missingVars = [];
+      if (!clientId) missingVars.push("GOOGLE_OAUTH_CLIENT_ID");
+      if (!clientSecret) missingVars.push("GOOGLE_OAUTH_CLIENT_SECRET");
+      
+      console.error("Missing environment variables on Vercel:", missingVars);
       return NextResponse.json(
-        { error: "Google OAuth credentials not configured" },
+        { 
+          error: "Google OAuth credentials not configured",
+          details: `Missing environment variables: ${missingVars.join(", ")}. Please add them to Vercel environment variables.`
+        },
         { status: 500 }
       );
     }

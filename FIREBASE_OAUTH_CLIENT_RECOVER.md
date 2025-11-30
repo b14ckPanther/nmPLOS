@@ -125,3 +125,4 @@ If you're not sure which OAuth client Firebase is using:
   - Firebase OAuth client: For Google sign-in (`/__/auth/handler`)
   - Gmail OAuth client: For Gmail integration (`/api/gmail/callback`)
 
+1
