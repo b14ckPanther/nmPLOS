@@ -23,6 +23,14 @@ export async function GET(request: NextRequest) {
     const clientId = process.env.GOOGLE_OAUTH_CLIENT_ID;
     const clientSecret = process.env.GOOGLE_OAUTH_CLIENT_SECRET;
     const redirectUri = `${appUrl}/api/gmail/callback`;
+    
+    // Debug logging
+    console.log("OAuth Debug:", {
+      origin,
+      appUrl,
+      redirectUri,
+      hasEnvVar: !!process.env.NEXT_PUBLIC_APP_URL,
+    });
 
     if (!clientId || !clientSecret) {
       return NextResponse.json(
