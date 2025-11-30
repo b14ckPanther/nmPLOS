@@ -45,7 +45,8 @@ export const storeGmailMessageServer = async (
   userId: string,
   message: Omit<GmailMessage, "id">
 ): Promise<string> => {
-  const messagesRef = adminDb.collection("users").doc(userId).collection("gmail").collection("messages");
+  // Use full path string for subcollection
+  const messagesRef = adminDb.collection(`users/${userId}/gmail/messages`);
   
   // Check if message already exists by gmailId
   const existingQuery = await messagesRef

@@ -3,6 +3,9 @@ import { google } from "googleapis";
 import { getGmailTokensServer, storeGmailTokensServer, storeGmailMessageServer } from "@/lib/gmail-helpers-server";
 import { categorizeEmail } from "@/lib/gmail-ai-categorize";
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 // Helper to refresh access token if needed
 async function getValidAccessToken(userId: string): Promise<string | null> {
   const tokens = await getGmailTokensServer(userId);

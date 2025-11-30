@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { google } from "googleapis";
 import { storeGmailTokensServer } from "@/lib/gmail-helpers-server";
 
+// Force dynamic rendering for this route
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
