@@ -149,16 +149,18 @@ export default function WorkPage() {
     let overtime125Hours = 0;
     let overtime150Hours = 0;
 
-    if (shift.shiftType === "night") {
+    if (dayOfWeek === 6) {
+      // Saturday: 100% for first 7 hours, 125% for 8-10, 150% for 11-12
+      regularHours = Math.min(hours, 7);
+      const remainingAfter7 = Math.max(0, hours - 7);
+      overtime125Hours = remainingAfter7 > 0 ? Math.min(remainingAfter7, 3) : 0; // Hours 8, 9, 10 (max 3 hours)
+      const remainingAfter10 = Math.max(0, hours - 10);
+      overtime150Hours = remainingAfter10 > 0 ? remainingAfter10 : 0; // Hours 11, 12
+    } else if (shift.shiftType === "night") {
       // Night shift: 100% for first 7 hours, 125% for 8th hour
       regularHours = Math.min(hours, 7);
       overtime125Hours = hours > 7 ? Math.min(hours - 7, 1) : 0;
       overtime150Hours = 0;
-    } else if (dayOfWeek === 6) {
-      // Saturday: 100% for first 7 hours, 125% for 8-10, 150% for 11-12
-      regularHours = Math.min(hours, 7);
-      overtime125Hours = hours > 7 ? Math.min(hours - 7, 3) : 0; // Hours 8, 9, 10
-      overtime150Hours = hours > 10 ? hours - 10 : 0; // Hours 11, 12
     } else if (dayOfWeek === 5) {
       // Friday: 100% for first 8 hours, 125% for 9-10, 150% for 11-12
       regularHours = Math.min(hours, 8);
