@@ -25,9 +25,7 @@ export default function SettingsPage() {
   const [user, setUser] = useState(auth?.currentUser ?? null);
   const [loading, setLoading] = useState(true);
   const [showPasswordDialog, setShowPasswordDialog] = useState(false);
-  const [showGmailDialog, setShowGmailDialog] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [isConnectingGmail, setIsConnectingGmail] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -129,24 +127,6 @@ export default function SettingsPage() {
     }
   };
 
-  const handleConnectGmail = async () => {
-    setIsConnectingGmail(true);
-    try {
-      // Navigate to Gmail page where user can connect
-      router.push("/gmail");
-      setShowGmailDialog(false);
-    } catch (error: any) {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to navigate to Gmail page",
-        variant: "destructive",
-      });
-    } finally {
-      setIsConnectingGmail(false);
-    }
-  };
-
-  const isGmailConnected = typeof window !== "undefined" && localStorage.getItem("gmail_connected") === "true";
 
   if (loading) {
     return (
@@ -220,29 +200,6 @@ export default function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Integrations</CardTitle>
-            <CardDescription>Connect external services</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium">Gmail</p>
-                <p className="text-sm text-muted-foreground">
-                  {isGmailConnected ? "Connected" : "Not connected"}
-                </p>
-              </div>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={() => setShowGmailDialog(true)}
-              >
-                {isGmailConnected ? "Manage" : "Connect"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
 
         <Card>
           <CardHeader>
@@ -341,45 +298,6 @@ export default function SettingsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Gmail Connection Dialog */}
-      <Dialog open={showGmailDialog} onOpenChange={setShowGmailDialog}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>{isGmailConnected ? "Manage Gmail" : "Connect Gmail"}</DialogTitle>
-            <DialogDescription>
-              {isGmailConnected
-                ? "Manage your Gmail integration settings"
-                : "Connect your Gmail account to sync and categorize emails"}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-4">
-            {isGmailConnected ? (
-              <p className="text-sm text-muted-foreground">
-                Your Gmail account is connected. You can manage it from the Gmail Center page.
-              </p>
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                Connect your Gmail account to automatically sync and categorize your emails.
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowGmailDialog(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleConnectGmail} disabled={isConnectingGmail}>
-              {isConnectingGmail ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                isGmailConnected ? "Go to Gmail Center" : "Connect Gmail"
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </motion.div>
   );
 }

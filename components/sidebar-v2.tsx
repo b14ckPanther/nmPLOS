@@ -109,7 +109,6 @@ const defaultCategories: SidebarCategory[] = [
     id: "communication",
     name: "Communication",
     items: [
-      { href: "/gmail", label: "Gmail", iconName: "Mail" },
       { href: "/assistant", label: "AI Assistant", iconName: "Bot" },
     ],
     order: 5,
@@ -145,6 +144,11 @@ export function SidebarV2() {
     });
     return () => unsubscribe();
   }, []);
+
+  // Auto-close mobile sidebar when pathname changes
+  React.useEffect(() => {
+    setIsMobileOpen(false);
+  }, [pathname]);
 
   // Load user preferences
   const loadPreferences = async (userId: string) => {

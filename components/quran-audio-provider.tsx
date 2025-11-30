@@ -40,39 +40,7 @@ export function QuranAudioProvider({ children }: { children: React.ReactNode }) 
   const [duration, setDuration] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const currentStateRef = useRef({ surah: null as number | null, ayah: null as number | null, totalAyahs: 0 });
-  const isPlayingRef = useRef(false);
-  const animationFrameRef = useRef<number | null>(null);
-
-  // Real-time smooth updates using requestAnimationFrame
-  useEffect(() => {
-    const updateTime = () => {
-      const currentAudio = audioRef.current;
-      if (currentAudio && isPlayingRef.current) {
-        setCurrentTime(currentAudio.currentTime);
-        if (currentAudio.duration && !isNaN(currentAudio.duration)) {
-          setDuration(currentAudio.duration);
-        }
-        animationFrameRef.current = requestAnimationFrame(updateTime);
-      }
-    };
-
-    if (isPlaying) {
-      isPlayingRef.current = true;
-      animationFrameRef.current = requestAnimationFrame(updateTime);
-    } else {
-      isPlayingRef.current = false;
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-        animationFrameRef.current = null;
-      }
-    }
-
-    return () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [isPlaying]);
+  const timeUpdateHandlerRef = useRef<(() => void) | null>(null);
 
   const playAyah = useCallback(async (surahNumber: number, ayahNumber: number, totalAyahsCount: number) => {
     try {
@@ -84,9 +52,12 @@ export function QuranAudioProvider({ children }: { children: React.ReactNode }) 
         currentAudio.currentTime = 0;
         
         // Remove all event listeners to prevent any callbacks
+        if (timeUpdateHandlerRef.current) {
+          currentAudio.removeEventListener('timeupdate', timeUpdateHandlerRef.current);
+          timeUpdateHandlerRef.current = null;
+        }
         currentAudio.onended = null;
         currentAudio.onerror = null;
-        currentAudio.ontimeupdate = null;
         currentAudio.onloadedmetadata = null;
         currentAudio.onplay = null;
         currentAudio.onpause = null;
@@ -152,13 +123,24 @@ export function QuranAudioProvider({ children }: { children: React.ReactNode }) 
       };
 
       // Use timeupdate for additional updates (backup to requestAnimationFrame)
-      newAudio.ontimeupdate = () => {
-        // This is a backup - main updates happen via requestAnimationFrame
-        // but this ensures we catch updates even if RAF is delayed
-        if (newAudio.duration && !isNaN(newAudio.duration)) {
-          setDuration(newAudio.duration);
+      // Use timeupdate event for smooth, real-time progress updates
+      // This fires multiple times per second and is more reliable than RAF for audio
+      timeUpdateHandlerRef.current = () => {
+        if (newAudio) {
+          const current = newAudio.currentTime;
+          const total = newAudio.duration;
+          
+          // Only update if values are valid and changed significantly (avoid micro-updates)
+          if (!isNaN(current) && isFinite(current)) {
+            setCurrentTime(current);
+          }
+          if (!isNaN(total) && isFinite(total) && total > 0) {
+            setDuration(total);
+          }
         }
       };
+      
+      newAudio.addEventListener('timeupdate', timeUpdateHandlerRef.current);
 
       newAudio.onloadedmetadata = () => {
         if (newAudio.duration && !isNaN(newAudio.duration)) {
@@ -263,13 +245,13 @@ export function QuranAudioProvider({ children }: { children: React.ReactNode }) 
     return () => {
       const currentAudio = audioRef.current;
       if (currentAudio) {
+        if (timeUpdateHandlerRef.current) {
+          currentAudio.removeEventListener('timeupdate', timeUpdateHandlerRef.current);
+        }
         currentAudio.pause();
         currentAudio.currentTime = 0;
         currentAudio.src = '';
         currentAudio.load();
-      }
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
       }
     };
   }, []);

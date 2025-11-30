@@ -455,28 +455,29 @@ export default function PrayerPage() {
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {/* Audio Controls */}
+            {/* Audio Controls - Modern Design */}
             {(isPlaying || currentAyah) && (
-              <div className="space-y-4 p-4 bg-card border rounded-lg">
+              <div className="space-y-4 p-5 bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950 border border-slate-700/50 rounded-2xl shadow-xl">
                 {/* Now Playing Info */}
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <div className="text-sm font-medium">
+                    <div className="text-base font-bold text-white">
                       {currentSurah && surahs.find((s) => s.number === currentSurah)?.englishName}
                     </div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-xs text-slate-400 mt-0.5">
                       Ayah {currentAyah} {totalAyahs > 0 && `of ${totalAyahs}`}
                     </div>
                   </div>
                 </div>
 
-                {/* Progress Bar */}
+                {/* Progress Bar - Modern */}
                 <div className="space-y-2">
-                  <div className="relative w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                  <div className="relative w-full h-1.5 bg-slate-700/50 rounded-full overflow-hidden">
                     <div
-                      className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-600 to-blue-500 transition-all duration-75 ease-linear"
+                      className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-500 via-blue-400 to-cyan-400 rounded-full transition-all ease-linear"
                       style={{
-                        width: duration > 0 ? `${((currentTime || 0) / duration) * 100}%` : '0%'
+                        width: duration > 0 ? `${((currentTime || 0) / duration) * 100}%` : '0%',
+                        transition: 'width 0.1s linear'
                       }}
                     />
                     <input
@@ -488,67 +489,64 @@ export default function PrayerPage() {
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                     />
                   </div>
-                  <div className="flex justify-between text-xs text-muted-foreground">
+                  <div className="flex justify-between text-xs text-slate-400 font-mono">
                     <span>{formatTime(currentTime)}</span>
                     <span>{formatTime(duration)}</span>
                   </div>
                 </div>
 
-                {/* Control Buttons */}
-                <div className="flex items-center gap-2">
+                {/* Control Buttons - Modern */}
+                <div className="flex items-center gap-3">
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="icon"
                     onClick={playPreviousAyah}
                     disabled={!currentSurah || !currentAyah || currentAyah <= 1}
                     title="Previous Ayah"
+                    className="h-10 w-10 rounded-full bg-slate-700/50 hover:bg-slate-600/50 text-white disabled:opacity-30"
                   >
-                    <SkipBack className="h-4 w-4" />
+                    <SkipBack className="h-5 w-5" />
                   </Button>
                   <Button
-                    variant="outline"
                     size="icon"
                     onClick={isPlaying ? pauseAudio : resumeAudio}
                     title={isPlaying ? "Pause" : "Play"}
+                    className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 text-white shadow-lg shadow-blue-500/50"
                   >
-                    {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                    {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6 ml-0.5" />}
                   </Button>
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     size="icon"
                     onClick={playNextAyah}
                     disabled={!currentSurah || !currentAyah || !totalAyahs || currentAyah >= totalAyahs}
                     title="Next Ayah"
+                    className="h-10 w-10 rounded-full bg-slate-700/50 hover:bg-slate-600/50 text-white disabled:opacity-30"
                   >
-                    <SkipForward className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={stopAudio}
-                    title="Stop"
-                  >
-                    <Pause className="h-4 w-4" />
+                    <SkipForward className="h-5 w-5" />
                   </Button>
                   <div className="flex-1" />
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={toggleMute}
-                    title={isMuted ? "Unmute" : "Mute"}
-                  >
-                    {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-                  </Button>
-                  <input
-                    type="range"
-                    min="0"
-                    max="1"
-                    step="0.01"
-                    value={volume}
-                    onChange={(e) => setVolume(Number(e.target.value))}
-                    className="w-20 h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-blue-600"
-                    title="Volume"
-                  />
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={toggleMute}
+                      title={isMuted ? "Unmute" : "Mute"}
+                      className="h-9 w-9 rounded-full bg-slate-700/50 hover:bg-slate-600/50 text-white"
+                    >
+                      {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                    </Button>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.01"
+                      value={volume}
+                      onChange={(e) => setVolume(Number(e.target.value))}
+                      className="w-24 h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-500"
+                      title="Volume"
+                    />
+                  </div>
                 </div>
               </div>
             )}
