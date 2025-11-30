@@ -108,6 +108,11 @@ service cloud.firestore {
       match /prayer/{document=**} {
         allow read, write: if isOwner(userId);
       }
+      
+      // Subscriptions - users can only access their own subscriptions
+      match /subscriptions/{subscriptionId} {
+        allow read, write: if isOwner(userId);
+      }
     }
     
     // Deny all other access

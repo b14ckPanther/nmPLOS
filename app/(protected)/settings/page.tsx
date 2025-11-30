@@ -10,7 +10,7 @@ import { onAuthStateChanged } from "firebase/auth";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { LogOut, Mail, User, Loader2, FolderTree, Plus, Trash2, Edit2, GripVertical } from "lucide-react";
+import { LogOut, Mail, User, Loader2, FolderTree, Plus, Trash2, Edit2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { PageHeader } from "@/components/page-header";
 import { motion } from "framer-motion";
@@ -34,7 +34,6 @@ export default function SettingsPage() {
   const [editingCategory, setEditingCategory] = useState<string | null>(null);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [showAddCategory, setShowAddCategory] = useState(false);
-  const [draggedCategory, setDraggedCategory] = useState<string | null>(null);
   const router = useRouter();
   const { toast } = useToast();
 
@@ -213,35 +212,6 @@ export default function SettingsPage() {
     });
   };
 
-  const handleDragStart = (categoryId: string) => {
-    setDraggedCategory(categoryId);
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-  };
-
-  const handleDrop = (targetCategoryId: string) => {
-    if (!draggedCategory || draggedCategory === targetCategoryId) return;
-
-    const draggedIndex = categories.findIndex(c => c.id === draggedCategory);
-    const targetIndex = categories.findIndex(c => c.id === targetCategoryId);
-
-    if (draggedIndex === -1 || targetIndex === -1) return;
-
-    const updated = [...categories];
-    const [removed] = updated.splice(draggedIndex, 1);
-    updated.splice(targetIndex, 0, removed);
-
-    // Update order values
-    const reordered = updated.map((cat, index) => ({
-      ...cat,
-      order: index,
-    }));
-
-    saveCategories(reordered);
-    setDraggedCategory(null);
-  };
 
   const handleSignOut = async () => {
     if (!auth) return;
@@ -421,16 +391,8 @@ export default function SettingsPage() {
                   .map((category) => (
                     <div
                       key={category.id}
-                      draggable
-                      onDragStart={() => handleDragStart(category.id)}
-                      onDragOver={handleDragOver}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        handleDrop(category.id);
-                      }}
-                      className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors cursor-move group"
+                      className="flex items-center gap-3 p-3 border rounded-lg hover:bg-accent/50 transition-colors"
                     >
-                      <GripVertical className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                       <div className="flex-1">
                         {editingCategory === category.id ? (
                           <Input

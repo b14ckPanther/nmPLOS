@@ -89,6 +89,7 @@ const defaultCategories: SidebarCategory[] = [
     name: "Finance",
     items: [
       { href: "/finance", label: "Finance", iconName: "Wallet" },
+      { href: "/subscriptions", label: "Subscriptions", iconName: "Wallet" },
     ],
     order: 3,
     collapsed: false,
@@ -129,6 +130,7 @@ export function SidebarV2() {
   const [isMobileOpen, setIsMobileOpen] = React.useState(false);
   const [categories, setCategories] = React.useState<SidebarCategory[]>(defaultCategories);
   const [draggedItem, setDraggedItem] = React.useState<{ item: NavItem; categoryId: string } | null>(null);
+  const [draggedCategory, setDraggedCategory] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
 
   // Load user
@@ -180,11 +182,43 @@ export function SidebarV2() {
   const savePreferences = async (newCategories: SidebarCategory[]) => {
     if (!user) return;
     try {
-      await saveSidebarPreferences(user.uid, newCategories);
+      // Filter out root category when saving
+      const categoriesToSave = newCategories.filter(cat => cat.id !== "root");
+      await saveSidebarPreferences(user.uid, categoriesToSave);
       setCategories(newCategories);
     } catch (error) {
       console.error("Error saving sidebar preferences:", error);
     }
+  };
+
+  const handleCategoryDragStart = (categoryId: string) => {
+    setDraggedCategory(categoryId);
+  };
+
+  const handleCategoryDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const handleCategoryDrop = (targetCategoryId: string) => {
+    if (!draggedCategory || draggedCategory === targetCategoryId) return;
+
+    const draggedIndex = categories.findIndex(c => c.id === draggedCategory);
+    const targetIndex = categories.findIndex(c => c.id === targetCategoryId);
+
+    if (draggedIndex === -1 || targetIndex === -1) return;
+
+    const updated = [...categories];
+    const [removed] = updated.splice(draggedIndex, 1);
+    updated.splice(targetIndex, 0, removed);
+
+    // Update order values
+    const reordered = updated.map((cat, index) => ({
+      ...cat,
+      order: index,
+    }));
+
+    savePreferences(reordered);
+    setDraggedCategory(null);
   };
 
   const toggleCategory = (categoryId: string) => {
@@ -237,14 +271,27 @@ export function SidebarV2() {
     const Icon = category.collapsed ? ChevronRight : ChevronDown;
 
     return (
-      <div key={category.id} className="mb-2">
-        <button
-          onClick={() => toggleCategory(category.id)}
-          className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
-        >
-          <Icon className="h-4 w-4" />
-          <span>{category.name}</span>
-        </button>
+      <div
+        key={category.id}
+        draggable
+        onDragStart={() => handleCategoryDragStart(category.id)}
+        onDragOver={handleCategoryDragOver}
+        onDrop={(e) => {
+          e.preventDefault();
+          handleCategoryDrop(category.id);
+        }}
+        className="mb-2 group/category"
+      >
+        <div className="flex items-center gap-2">
+          <GripVertical className="h-4 w-4 text-muted-foreground opacity-0 group-hover/category:opacity-50 transition-opacity cursor-move" />
+          <button
+            onClick={() => toggleCategory(category.id)}
+            className="flex-1 flex items-center gap-2 px-4 py-2 text-sm font-semibold text-muted-foreground hover:text-foreground transition-colors"
+          >
+            <Icon className="h-4 w-4" />
+            <span>{category.name}</span>
+          </button>
+        </div>
         <AnimatePresence>
           {!isCollapsed && (
             <motion.div

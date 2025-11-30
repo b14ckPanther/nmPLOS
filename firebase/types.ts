@@ -82,6 +82,18 @@ export interface Transaction {
   createdAt: Date;
 }
 
+export interface Subscription {
+  id: string;
+  name: string;
+  amount: number; // Monthly amount in NIS
+  billingDate: number; // Day of month (1-31)
+  category?: string;
+  notes?: string;
+  active: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Bill {
   id: string;
   name: string;

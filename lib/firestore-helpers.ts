@@ -26,7 +26,8 @@ import type {
   FinancialPreferences,
   Job,
   Shift,
-  WorkRecord
+  WorkRecord,
+  Subscription
 } from "@/firebase/types";
 
 // Helper to ensure db is available
@@ -460,5 +461,46 @@ export const updatePrayerStatus = async (
       updatedAt: Timestamp.now(),
     });
   }
+};
+
+// Subscriptions
+export const getSubscriptions = async (uid: string): Promise<Subscription[]> => {
+  const firestore = ensureDb();
+  const subscriptionsRef = collection(firestore, `users/${uid}/subscriptions`);
+  const q = query(subscriptionsRef, orderBy("billingDate", "asc"));
+  const snapshot = await getDocs(q);
+  
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data(),
+    createdAt: toDate(doc.data().createdAt) || new Date(),
+    updatedAt: toDate(doc.data().updatedAt) || new Date(),
+  })) as Subscription[];
+};
+
+export const createSubscription = async (uid: string, subscription: Omit<Subscription, "id" | "createdAt" | "updatedAt">): Promise<string> => {
+  const firestore = ensureDb();
+  const subscriptionsRef = collection(firestore, `users/${uid}/subscriptions`);
+  const docRef = doc(subscriptionsRef);
+  await setDoc(docRef, {
+    ...subscription,
+    createdAt: Timestamp.now(),
+    updatedAt: Timestamp.now(),
+  });
+  return docRef.id;
+};
+
+export const updateSubscription = async (uid: string, subscriptionId: string, updates: Partial<Subscription>): Promise<void> => {
+  const firestore = ensureDb();
+  const docRef = doc(firestore, `users/${uid}/subscriptions`, subscriptionId);
+  const updateData: any = { ...updates };
+  updateData.updatedAt = Timestamp.now();
+  await updateDoc(docRef, updateData);
+};
+
+export const deleteSubscription = async (uid: string, subscriptionId: string): Promise<void> => {
+  const firestore = ensureDb();
+  const docRef = doc(firestore, `users/${uid}/subscriptions`, subscriptionId);
+  await deleteDoc(docRef);
 };
 
