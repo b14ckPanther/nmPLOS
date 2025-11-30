@@ -1076,6 +1076,103 @@ export default function SubscriptionsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Phone Payment Dialog */}
+      <Dialog open={showPhoneDialog} onOpenChange={setShowPhoneDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>
+              {editingPhonePayment ? "Edit Phone Payment" : "Add Phone Payment"}
+            </DialogTitle>
+            <DialogDescription>
+              {editingPhonePayment
+                ? "Update your phone payment details"
+                : "Add a new phone installment payment plan"}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="phone-name">Phone Name *</Label>
+              <Input
+                id="phone-name"
+                value={phoneFormData.phoneName}
+                onChange={(e) => setPhoneFormData({ ...phoneFormData, phoneName: e.target.value })}
+                placeholder="e.g., iPhone 15 Pro, Samsung Galaxy S24"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone-totalAmount">Total Amount (₪) *</Label>
+                <Input
+                  id="phone-totalAmount"
+                  type="number"
+                  step="0.01"
+                  value={phoneFormData.totalAmount}
+                  onChange={(e) => setPhoneFormData({ ...phoneFormData, totalAmount: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone-monthlyPayment">Monthly Payment (₪) *</Label>
+                <Input
+                  id="phone-monthlyPayment"
+                  type="number"
+                  step="0.01"
+                  value={phoneFormData.monthlyPayment}
+                  onChange={(e) => setPhoneFormData({ ...phoneFormData, monthlyPayment: e.target.value })}
+                  placeholder="0.00"
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone-startDate">Start Date *</Label>
+                <Input
+                  id="phone-startDate"
+                  type="date"
+                  value={phoneFormData.startDate}
+                  onChange={(e) => setPhoneFormData({ ...phoneFormData, startDate: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone-endDate">End Date *</Label>
+                <Input
+                  id="phone-endDate"
+                  type="date"
+                  value={phoneFormData.endDate}
+                  onChange={(e) => setPhoneFormData({ ...phoneFormData, endDate: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="phone-notes">Notes</Label>
+              <Input
+                id="phone-notes"
+                value={phoneFormData.notes}
+                onChange={(e) => setPhoneFormData({ ...phoneFormData, notes: e.target.value })}
+                placeholder="Additional notes..."
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={handleClosePhoneDialog}>
+              Cancel
+            </Button>
+            <Button onClick={handleSavePhone} disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : editingPhonePayment ? (
+                "Update"
+              ) : (
+                "Create"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
