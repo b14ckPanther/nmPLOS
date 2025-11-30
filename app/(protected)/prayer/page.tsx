@@ -472,17 +472,22 @@ export default function PrayerPage() {
 
                 {/* Progress Bar */}
                 <div className="space-y-2">
-                  <input
-                    type="range"
-                    min="0"
-                    max={duration || 0}
-                    value={currentTime || 0}
-                    onChange={(e) => seekTo(Number(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700 accent-blue-600"
-                    style={{
-                      background: `linear-gradient(to right, rgb(37, 99, 235) 0%, rgb(37, 99, 235) ${((currentTime || 0) / (duration || 1)) * 100}%, rgb(229, 231, 235) ${((currentTime || 0) / (duration || 1)) * 100}%, rgb(229, 231, 235) 100%)`
-                    }}
-                  />
+                  <div className="relative w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div
+                      className="absolute left-0 top-0 h-full bg-gradient-to-r from-blue-600 to-blue-500 transition-all duration-75 ease-linear"
+                      style={{
+                        width: duration > 0 ? `${((currentTime || 0) / duration) * 100}%` : '0%'
+                      }}
+                    />
+                    <input
+                      type="range"
+                      min="0"
+                      max={duration || 0}
+                      value={currentTime || 0}
+                      onChange={(e) => seekTo(Number(e.target.value))}
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                    />
+                  </div>
                   <div className="flex justify-between text-xs text-muted-foreground">
                     <span>{formatTime(currentTime)}</span>
                     <span>{formatTime(duration)}</span>

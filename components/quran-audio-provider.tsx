@@ -38,48 +38,74 @@ export function QuranAudioProvider({ children }: { children: React.ReactNode }) 
   const [isMuted, setIsMuted] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const updateIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const currentStateRef = useRef({ surah: null as number | null, ayah: null as number | null, totalAyahs: 0 });
+  const isPlayingRef = useRef(false);
+  const animationFrameRef = useRef<number | null>(null);
 
-  // Update current time periodically
+  // Real-time smooth updates using requestAnimationFrame
   useEffect(() => {
-    if (audio && isPlaying) {
-      updateIntervalRef.current = setInterval(() => {
-        if (audio) {
-          setCurrentTime(audio.currentTime);
-          if (audio.duration && !isNaN(audio.duration)) {
-            setDuration(audio.duration);
-          }
+    const updateTime = () => {
+      const currentAudio = audioRef.current;
+      if (currentAudio && isPlayingRef.current) {
+        setCurrentTime(currentAudio.currentTime);
+        if (currentAudio.duration && !isNaN(currentAudio.duration)) {
+          setDuration(currentAudio.duration);
         }
-      }, 100);
+        animationFrameRef.current = requestAnimationFrame(updateTime);
+      }
+    };
+
+    if (isPlaying) {
+      isPlayingRef.current = true;
+      animationFrameRef.current = requestAnimationFrame(updateTime);
     } else {
-      if (updateIntervalRef.current) {
-        clearInterval(updateIntervalRef.current);
-        updateIntervalRef.current = null;
+      isPlayingRef.current = false;
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
     }
 
     return () => {
-      if (updateIntervalRef.current) {
-        clearInterval(updateIntervalRef.current);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [audio, isPlaying]);
+  }, [isPlaying]);
 
   const playAyah = useCallback(async (surahNumber: number, ayahNumber: number, totalAyahsCount: number) => {
     try {
-      // Stop current audio if playing
+      // Stop and clean up current audio completely before starting new one
       const currentAudio = audioRef.current;
       if (currentAudio) {
+        // Pause immediately
         currentAudio.pause();
         currentAudio.currentTime = 0;
-        // Remove all event listeners
+        
+        // Remove all event listeners to prevent any callbacks
         currentAudio.onended = null;
         currentAudio.onerror = null;
         currentAudio.ontimeupdate = null;
         currentAudio.onloadedmetadata = null;
+        currentAudio.onplay = null;
+        currentAudio.onpause = null;
+        
+        // Stop loading
+        currentAudio.src = '';
+        currentAudio.load();
+        
+        // Update state immediately
+        setIsPlaying(false);
+        setCurrentTime(0);
       }
+      
+      // Also clear the audio state
+      setAudio(null);
+      audioRef.current = null;
+      
+      // Small delay to ensure cleanup completes
+      await new Promise(resolve => setTimeout(resolve, 50));
 
       // Use alquran.cloud API which provides reliable audio
       const audioUrl = `https://api.alquran.cloud/v1/ayah/${surahNumber}:${ayahNumber}/ar.alafasy`;
@@ -125,8 +151,10 @@ export function QuranAudioProvider({ children }: { children: React.ReactNode }) 
         }
       };
 
+      // Use timeupdate for additional updates (backup to requestAnimationFrame)
       newAudio.ontimeupdate = () => {
-        setCurrentTime(newAudio.currentTime);
+        // This is a backup - main updates happen via requestAnimationFrame
+        // but this ensures we catch updates even if RAF is delayed
         if (newAudio.duration && !isNaN(newAudio.duration)) {
           setDuration(newAudio.duration);
         }
@@ -237,9 +265,11 @@ export function QuranAudioProvider({ children }: { children: React.ReactNode }) 
       if (currentAudio) {
         currentAudio.pause();
         currentAudio.currentTime = 0;
+        currentAudio.src = '';
+        currentAudio.load();
       }
-      if (updateIntervalRef.current) {
-        clearInterval(updateIntervalRef.current);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
       }
     };
   }, []);
